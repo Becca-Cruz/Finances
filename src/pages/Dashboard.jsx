@@ -160,7 +160,7 @@ export default function Dashboard({ expenses, conversions, investments, categori
   }
   const topLevel = categories.filter(c => !c.parentId)
   const pieData = topLevel
-    .map(c => ({ name: c.name, value: parseFloat((catMap[c.id] || 0).toFixed(2)), color: c.color }))
+    .map(c => ({ id: c.id, name: c.name, value: parseFloat((catMap[c.id] || 0).toFixed(2)), color: c.color }))
     .filter(d => d.value > 0)
 
   // Bar chart: last 6 months
