@@ -67,16 +67,17 @@ export function parseMeowExpensesCSV(csvText, categories, conversions) {
   }
   const getRate = (dateStr) => {
     const ym = dateStr.slice(0, 7)
-    // Walk back up to 6 months to find a rate
-    for (let i = 0; i <= 6; i++) {
+    const lookup = (offset) => {
       const [y, m] = ym.split('-').map(Number)
-      let mm = m - i, yy = y
+      let mm = m + offset, yy = y
       while (mm < 1) { mm += 12; yy -= 1 }
+      while (mm > 12) { mm -= 12; yy += 1 }
       const key = `${yy}-${String(mm).padStart(2, '0')}`
-      if (monthRates[key]?.totalARS > 0) {
-        return monthRates[key].weightedSum / monthRates[key].totalARS
-      }
+      return monthRates[key]?.totalARS > 0 ? monthRates[key].weightedSum / monthRates[key].totalARS : null
     }
+    // Walk backward up to 6 months, then forward up to 3 months
+    for (let i = 0; i <= 6; i++) { const r = lookup(-i); if (r) return r }
+    for (let i = 1; i <= 3; i++) { const r = lookup(i); if (r) return r }
     return null
   }
 
@@ -124,7 +125,7 @@ export function parseDolarAppCSV(csvText) {
     const amountARS = parseNum(monto)
     const rate = parseNum(comentar)
 
-    if (!date || isNaN(amountARS) || isNaN(rate) || rate === 0) continue
+    if (!date || isNaN(amountARS) || amountARS <= 0 || isNaN(rate) || rate === 0) continue
 
     results.push({
       id: `csv-${date}-${amountARS}-${rate}`,
