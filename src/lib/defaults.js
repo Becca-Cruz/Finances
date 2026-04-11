@@ -8,6 +8,7 @@ export const DEFAULT_CATEGORIES = [
   // Entretenimiento + subcategory
   { id: 'entretenimiento', name: 'Entretenimiento', color: '#3b82f6', parentId: null },
   { id: 'subscripciones',  name: 'Subscripciones', color: '#0ea5e9', parentId: 'entretenimiento' },
+  { id: 'gym',             name: 'Gym',             color: '#22c55e', parentId: null },
   // Extra + subcategories
   { id: 'extra',           name: 'Extra',           color: '#6b7280', parentId: null },
   { id: 'bolucompras',     name: 'Bolucompras',     color: '#8b5cf6', parentId: 'extra' },
