@@ -182,17 +182,17 @@ export default function Settings({
               onClick={exportData}
               className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
             >
-              <Download size={14} /> Export JSON
+              <Download size={14} /> Export backup
             </button>
           </div>
 
           <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
             <div>
               <p className="text-sm font-medium text-gray-700">Import backup</p>
-              <p className="text-xs text-gray-400 mt-0.5">Restores expenses, conversions, investments and categories.</p>
+              <p className="text-xs text-gray-400 mt-0.5">Restores all data from a previous backup export.</p>
             </div>
             <label className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
-              <Upload size={14} /> Import JSON
+              <Upload size={14} /> Import backup
               <input type="file" accept=".json" className="hidden" onChange={importData} />
             </label>
           </div>
