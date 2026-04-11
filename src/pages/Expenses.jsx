@@ -157,7 +157,7 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
   )
 }
 
-export default function Expenses({ expenses, categories, conversions, onAdd, onUpdate, onDelete }) {
+export default function Expenses({ expenses, categories, conversions, onAdd, onUpdate, onDelete, onAddConversions }) {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('all')
   const [filterCur, setFilterCur] = useState('all')
