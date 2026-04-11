@@ -172,6 +172,7 @@ export default function Dashboard({ expenses, conversions, investments, categori
   const pieData = topLevel
     .map(c => ({ id: c.id, name: c.name, value: parseFloat((catMap[c.id] || 0).toFixed(2)), color: c.color }))
     .filter(d => d.value > 0)
+    .sort((a, b) => b.value - a.value)
 
   // Bar chart: last 6 months
   const barData = Array.from({ length: 6 }, (_, i) => {
