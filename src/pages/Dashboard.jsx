@@ -279,13 +279,13 @@ export default function Dashboard({ expenses, conversions, investments, categori
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-700">Expenses by Category</h3>
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs bg-gray-50">
-              {['ARS', 'USD'].map(cur => (
+              {[['ARS', 'ARG'], ['USD', 'USA']].map(([val, label]) => (
                 <button
-                  key={cur}
-                  onClick={() => setPieCurrency(cur)}
-                  className={`px-2.5 py-1 font-medium transition-colors ${pieCurrency === cur ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                  key={val}
+                  onClick={() => setPieCurrency(val)}
+                  className={`px-2.5 py-1 font-medium transition-colors ${pieCurrency === val ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
                 >
-                  {cur}
+                  {label}
                 </button>
               ))}
             </div>
