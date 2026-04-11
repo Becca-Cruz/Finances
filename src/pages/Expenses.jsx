@@ -38,8 +38,9 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = () => {
-    if (!form.description.trim() || !form.amount || !rate) return
-    const amountARS = form.currency === 'ARS' ? amount : usdToArs(amount, rate)
+    if (!form.description.trim() || !form.amount) return
+    if (form.currency === 'ARS' && !rate) return
+    const amountARS = form.currency === 'ARS' ? amount : (rate ? usdToArs(amount, rate) : 0)
     const amountUSD = form.currency === 'USD' ? amount : arsToUsd(amount, rate)
     onSave({
       id: expense?.id || uid(),
@@ -48,7 +49,7 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
       category: form.category,
       inputCurrency: form.currency,
       inputAmount: amount,
-      rateARS_USD: rate,
+      rateARS_USD: rate || 0,
       amountARS,
       amountUSD,
     })
@@ -124,7 +125,10 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">
             Exchange Rate (ARS per USD)
-            {autoRate && !form.rate && <span className="text-gray-400 ml-1">— auto from conversions</span>}
+            {form.currency === 'USD'
+              ? <span className="text-gray-400 ml-1">— optional</span>
+              : autoRate && !form.rate && <span className="text-gray-400 ml-1">— auto from conversions</span>
+            }
           </label>
           <input
             type="number"
@@ -133,7 +137,10 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
             value={form.rate}
             onChange={e => set('rate', e.target.value)}
           />
-          {!autoRate && conversions.length === 0 && (
+          {form.currency === 'USD' && !rate && (
+            <p className="text-xs text-gray-400 mt-1">Without a rate the ARS equivalent will be blank.</p>
+          )}
+          {form.currency === 'ARS' && !autoRate && conversions.length === 0 && (
             <p className="text-xs text-amber-600 mt-1">No conversions logged yet — enter rate manually.</p>
           )}
         </div>
