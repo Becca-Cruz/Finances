@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
 import Income from './pages/Income'
@@ -16,6 +16,17 @@ export default function App() {
   const [investments, setInvestments] = useLocalStorage('fin_investments', [])
   const [categories, setCategories] = useLocalStorage('fin_categories', DEFAULT_CATEGORIES)
   const [income, setIncome] = useLocalStorage('fin_income', [])
+
+  // Migrate categories that were saved before parentId was introduced
+  useEffect(() => {
+    const needsMigration = categories.some(c => c.parentId === undefined)
+    if (!needsMigration) return
+    setCategories(cats => cats.map(cat => {
+      if (cat.parentId !== undefined) return cat
+      const def = DEFAULT_CATEGORIES.find(d => d.id === cat.id)
+      return { ...cat, parentId: def?.parentId ?? null }
+    }))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addExpense = useCallback((e) => setExpenses(p => [e, ...p]), [setExpenses])
   const updateExpense = useCallback((e) => setExpenses(p => p.map(x => x.id === e.id ? e : x)), [setExpenses])
