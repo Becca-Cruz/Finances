@@ -29,10 +29,10 @@ export function arsToUsd(ars, rate) { return rate ? ars / rate : 0 }
 export function usdToArs(usd, rate) { return rate ? usd * rate : 0 }
 
 export function fmtARS(n) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS',
+  const num = new Intl.NumberFormat('es-AR', {
     minimumFractionDigits: 0, maximumFractionDigits: 0,
   }).format(n ?? 0)
+  return `ARS ${num}`
 }
 
 export function fmtUSD(n) {
