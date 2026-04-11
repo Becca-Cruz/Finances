@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Plus, Pencil, Trash2, Search, Filter, Upload, Info } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Filter, Upload, Info, ChevronUp, ChevronDown } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD, fmtRate } from '../lib/currency'
 import { getParentId } from '../lib/defaults'
@@ -170,6 +170,8 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
   const [filterCur, setFilterCur] = useState('all')
   const [dateFrom, setDateFrom] = useState(initialDateFrom)
   const [dateTo, setDateTo] = useState(initialDateTo)
+  const [sortField, setSortField] = useState(null)
+  const [sortDir, setSortDir] = useState('desc')
   const [modal, setModal] = useState(null)
   const [importMsg, setImportMsg] = useState(null)
   const fileRef = useRef()
@@ -207,17 +209,27 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
   }
 
   const filtered = useMemo(() => {
-    return expenses
-      .filter(e => {
-        if (filterCat !== 'all' && e.category !== filterCat) return false
-        if (filterCur !== 'all' && e.inputCurrency !== filterCur) return false
-        if (dateFrom && e.date < dateFrom) return false
-        if (dateTo && e.date > dateTo) return false
-        if (search && !e.description.toLowerCase().includes(search.toLowerCase())) return false
-        return true
-      })
-      .sort((a, b) => b.date.localeCompare(a.date))
-  }, [expenses, filterCat, filterCur, dateFrom, dateTo, search])
+    const rows = expenses.filter(e => {
+      if (filterCat !== 'all' && e.category !== filterCat) return false
+      if (filterCur !== 'all' && e.inputCurrency !== filterCur) return false
+      if (dateFrom && e.date < dateFrom) return false
+      if (dateTo && e.date > dateTo) return false
+      if (search && !e.description.toLowerCase().includes(search.toLowerCase())) return false
+      return true
+    })
+    const dir = sortDir === 'asc' ? 1 : -1
+    if (sortField === 'category') {
+      const getName = (e) => categories.find(c => c.id === e.category)?.name?.toLowerCase() || e.category
+      rows.sort((a, b) => dir * getName(a).localeCompare(getName(b)))
+    } else if (sortField === 'ars') {
+      rows.sort((a, b) => dir * (a.amountARS - b.amountARS))
+    } else if (sortField === 'usd') {
+      rows.sort((a, b) => dir * (a.amountUSD - b.amountUSD))
+    } else {
+      rows.sort((a, b) => b.date.localeCompare(a.date))
+    }
+    return rows
+  }, [expenses, filterCat, filterCur, dateFrom, dateTo, search, sortField, sortDir, categories])
 
   const totalARS = filtered.reduce((s, e) => s + e.amountARS, 0)
   const totalUSD = filtered.reduce((s, e) => s + e.amountUSD, 0)
@@ -230,6 +242,18 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this expense?')) onDelete(id)
+  }
+
+  const toggleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('desc') }
+  }
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) return <ChevronUp size={12} className="text-gray-300 ml-1 inline" />
+    return sortDir === 'asc'
+      ? <ChevronUp size={12} className="text-blue-500 ml-1 inline" />
+      : <ChevronDown size={12} className="text-blue-500 ml-1 inline" />
   }
 
   return (
@@ -358,11 +382,31 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Date', 'Description', 'Category', 'ARS', 'USD', 'Rate', ''].map(h => (
-                  <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 last:w-16">
+                {['Date', 'Description'].map(h => (
+                  <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">
                     {h}
                   </th>
                 ))}
+                <th
+                  className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 cursor-pointer select-none hover:text-gray-700"
+                  onClick={() => toggleSort('category')}
+                >
+                  Category<SortIcon field="category" />
+                </th>
+                <th
+                  className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 cursor-pointer select-none hover:text-gray-700"
+                  onClick={() => toggleSort('ars')}
+                >
+                  ARS<SortIcon field="ars" />
+                </th>
+                <th
+                  className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 cursor-pointer select-none hover:text-gray-700"
+                  onClick={() => toggleSort('usd')}
+                >
+                  USD<SortIcon field="usd" />
+                </th>
+                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">Rate</th>
+                <th className="w-16" />
               </tr>
             </thead>
             <tbody>
