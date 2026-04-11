@@ -17,15 +17,20 @@ export default function App() {
   const [categories, setCategories] = useLocalStorage('fin_categories', DEFAULT_CATEGORIES)
   const [income, setIncome] = useLocalStorage('fin_income', [])
 
-  // Migrate categories that were saved before parentId was introduced
+  // Migrate categories: add parentId field + add any missing default subcategories
   useEffect(() => {
-    const needsMigration = categories.some(c => c.parentId === undefined)
-    if (!needsMigration) return
-    setCategories(cats => cats.map(cat => {
-      if (cat.parentId !== undefined) return cat
-      const def = DEFAULT_CATEGORIES.find(d => d.id === cat.id)
-      return { ...cat, parentId: def?.parentId ?? null }
-    }))
+    const storedIds = new Set(categories.map(c => c.id))
+    const missing = DEFAULT_CATEGORIES.filter(d => !storedIds.has(d.id))
+    const needsParentMigration = categories.some(c => c.parentId === undefined)
+    if (!needsParentMigration && missing.length === 0) return
+    setCategories(cats => {
+      const updated = cats.map(cat => {
+        if (cat.parentId !== undefined) return cat
+        const def = DEFAULT_CATEGORIES.find(d => d.id === cat.id)
+        return { ...cat, parentId: def?.parentId ?? null }
+      })
+      return [...updated, ...missing]
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addExpense = useCallback((e) => setExpenses(p => [e, ...p]), [setExpenses])
@@ -66,6 +71,7 @@ export default function App() {
       <Expenses
         expenses={expenses} categories={categories} conversions={conversions}
         onAdd={addExpense} onUpdate={updateExpense} onDelete={deleteExpense}
+        onAddConversions={addConversions}
       />
     ),
     contadora: (

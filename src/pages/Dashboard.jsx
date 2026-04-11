@@ -25,13 +25,24 @@ function PieLegend({ pieData, categories, catMap, fmtChartVal, viewARS, monthExp
       <div className="flex-1 space-y-0.5 overflow-hidden py-1">
         {pieData.map((d) => {
           const children = categories.filter(c => c.parentId === d.id)
-          const hasChildren = children.some(child => {
-            const childVal = monthExpenses
-              .filter(e => e.category === child.id)
-              .reduce((s, e) => s + (viewARS ? e.amountARS : e.amountUSD), 0)
-            return childVal > 0
-          })
+          const hasChildren = children.length > 0
           const isOpen = expanded[d.id]
+
+          // Expenses attributed directly to parent ID
+          const directVal = monthExpenses
+            .filter(e => e.category === d.id)
+            .reduce((s, e) => s + (viewARS ? e.amountARS : e.amountUSD), 0)
+
+          // Expenses attributed to each subcategory
+          const childRows = children
+            .map(child => ({
+              child,
+              val: monthExpenses
+                .filter(e => e.category === child.id)
+                .reduce((s, e) => s + (viewARS ? e.amountARS : e.amountUSD), 0),
+            }))
+            .filter(({ val }) => val > 0)
+
           return (
             <div key={d.id}>
               <button
@@ -47,21 +58,25 @@ function PieLegend({ pieData, categories, catMap, fmtChartVal, viewARS, monthExp
                   </span>
                 )}
               </button>
-              {isOpen && hasChildren && (
+              {isOpen && (
                 <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 pl-2" style={{ borderColor: d.color + '44' }}>
-                  {children.map(child => {
-                    const childVal = monthExpenses
-                      .filter(e => e.category === child.id)
-                      .reduce((s, e) => s + (viewARS ? e.amountARS : e.amountUSD), 0)
-                    if (!childVal) return null
-                    return (
-                      <div key={child.id} className="flex items-center gap-2 text-xs py-0.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: child.color }} />
-                        <span className="text-gray-500 truncate flex-1">{child.name}</span>
-                        <span className="text-gray-600 shrink-0">{fmtChartVal(childVal)}</span>
-                      </div>
-                    )
-                  })}
+                  {childRows.map(({ child, val }) => (
+                    <div key={child.id} className="flex items-center gap-2 text-xs py-0.5">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: child.color }} />
+                      <span className="text-gray-500 truncate flex-1">{child.name}</span>
+                      <span className="text-gray-600 shrink-0">{fmtChartVal(val)}</span>
+                    </div>
+                  ))}
+                  {directVal > 0 && (
+                    <div className="flex items-center gap-2 text-xs py-0.5">
+                      <span className="w-2 h-2 rounded-full shrink-0 bg-gray-300" />
+                      <span className="text-gray-400 truncate flex-1">Other</span>
+                      <span className="text-gray-500 shrink-0">{fmtChartVal(directVal)}</span>
+                    </div>
+                  )}
+                  {childRows.length === 0 && directVal === 0 && (
+                    <p className="text-xs text-gray-400 py-0.5 pl-1">No breakdown available</p>
+                  )}
                 </div>
               )}
             </div>
