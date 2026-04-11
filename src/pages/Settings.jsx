@@ -61,8 +61,8 @@ function CategoryModal({ category, onSave, onClose }) {
 
 export default function Settings({
   categories, setCategories,
-  expenses, conversions, investments,
-  setExpenses, setConversions, setInvestments,
+  expenses, conversions, investments, income,
+  setExpenses, setConversions, setInvestments, setIncome,
 }) {
   const [catModal, setCatModal] = useState(null)
 
@@ -75,7 +75,7 @@ export default function Settings({
   }
 
   const exportData = () => {
-    const data = { expenses, conversions, investments, categories, exportedAt: new Date().toISOString() }
+    const data = { expenses, conversions, investments, categories, income, exportedAt: new Date().toISOString() }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -96,6 +96,7 @@ export default function Settings({
         if (data.conversions) setConversions(data.conversions)
         if (data.investments) setInvestments(data.investments)
         if (data.categories) setCategories(data.categories)
+        if (data.income) setIncome(data.income)
         alert('Data imported successfully!')
       } catch {
         alert('Failed to parse backup file.')
@@ -111,6 +112,7 @@ export default function Settings({
       setExpenses([])
       setConversions([])
       setInvestments([])
+      setIncome([])
       setCategories(DEFAULT_CATEGORIES)
     }
   }
@@ -173,7 +175,7 @@ export default function Settings({
             <div>
               <p className="text-sm font-medium text-gray-700">Export backup</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                {expenses.length} expenses · {conversions.length} conversions · {investments.length} investments
+                {expenses.length} expenses · {conversions.length} transfers · {investments.length} investments · {income.length} income entries
               </p>
             </div>
             <button

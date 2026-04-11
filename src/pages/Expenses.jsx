@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD, fmtRate } from '../lib/currency'
+import { getParentId } from '../lib/defaults'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -66,7 +67,16 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
             <select className={inputCls} value={form.category} onChange={e => set('category', e.target.value)}>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.filter(c => !c.parentId).map(parent => {
+                const children = categories.filter(c => c.parentId === parent.id)
+                if (children.length > 0) return (
+                  <optgroup key={parent.id} label={parent.name}>
+                    <option value={parent.id}>{parent.name} — general</option>
+                    {children.map(child => <option key={child.id} value={child.id}>&nbsp;&nbsp;↳ {child.name}</option>)}
+                  </optgroup>
+                )
+                return <option key={parent.id} value={parent.id}>{parent.name}</option>
+              })}
             </select>
           </div>
         </div>
@@ -170,7 +180,11 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
   const totalARS = filtered.reduce((s, e) => s + e.amountARS, 0)
   const totalUSD = filtered.reduce((s, e) => s + e.amountUSD, 0)
 
-  const getCat = (id) => categories.find(c => c.id === id) || { name: id, color: '#6b7280' }
+  const getCat = (id) => {
+    const cat = categories.find(c => c.id === id) || { id, name: id, color: '#6b7280', parentId: null }
+    const parent = cat.parentId ? categories.find(c => c.id === cat.parentId) : null
+    return { ...cat, parent }
+  }
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this expense?')) onDelete(id)
@@ -211,7 +225,16 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
             onChange={e => setFilterCat(e.target.value)}
           >
             <option value="all">All Categories</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories.filter(c => !c.parentId).map(parent => {
+              const children = categories.filter(c => c.parentId === parent.id)
+              if (children.length > 0) return (
+                <optgroup key={parent.id} label={parent.name}>
+                  <option value={parent.id}>{parent.name}</option>
+                  {children.map(child => <option key={child.id} value={child.id}>&nbsp;&nbsp;↳ {child.name}</option>)}
+                </optgroup>
+              )
+              return <option key={parent.id} value={parent.id}>{parent.name}</option>
+            })}
           </select>
           <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
             {['all', 'ARS', 'USD'].map(cur => (
@@ -291,10 +314,15 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{e.date}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.description}</td>
                     <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap"
-                        style={{ background: cat.color + '22', color: cat.color }}>
-                        {cat.name}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        {cat.parent && (
+                          <span className="text-[10px] text-gray-400 font-medium">{cat.parent.name}</span>
+                        )}
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap w-fit"
+                          style={{ background: (cat.parent?.color || cat.color) + '22', color: cat.parent?.color || cat.color }}>
+                          {cat.name}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{fmtARS(e.amountARS)}</td>
                     <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{fmtUSD(e.amountUSD)}</td>

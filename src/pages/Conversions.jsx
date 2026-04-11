@@ -113,8 +113,8 @@ export default function Conversions({ conversions, onAddMultiple, onAdd, onDelet
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Conversions</h2>
-          <p className="text-sm text-gray-500">Your USD → ARS transfers via DolarApp</p>
+          <h2 className="text-xl font-bold text-gray-900">Contadora</h2>
+          <p className="text-sm text-gray-500">USD → ARS transfers to declare with your accountant</p>
         </div>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />

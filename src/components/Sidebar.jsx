@@ -1,9 +1,10 @@
-import { LayoutDashboard, CreditCard, ArrowLeftRight, TrendingUp, Settings } from 'lucide-react'
+import { LayoutDashboard, CreditCard, ArrowLeftRight, TrendingUp, Settings, Wallet } from 'lucide-react'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { id: 'income', label: 'Income', Icon: Wallet },
   { id: 'expenses', label: 'Expenses', Icon: CreditCard },
-  { id: 'conversions', label: 'Conversions', Icon: ArrowLeftRight },
+  { id: 'contadora', label: 'Contadora', Icon: ArrowLeftRight },
   { id: 'investments', label: 'Investments', Icon: TrendingUp },
   { id: 'settings', label: 'Settings', Icon: Settings },
 ]

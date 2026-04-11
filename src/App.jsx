@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
+import Income from './pages/Income'
 import Expenses from './pages/Expenses'
 import Conversions from './pages/Conversions'
 import Investments from './pages/Investments'
@@ -14,6 +15,7 @@ export default function App() {
   const [conversions, setConversions] = useLocalStorage('fin_conversions', [])
   const [investments, setInvestments] = useLocalStorage('fin_investments', [])
   const [categories, setCategories] = useLocalStorage('fin_categories', DEFAULT_CATEGORIES)
+  const [income, setIncome] = useLocalStorage('fin_income', [])
 
   const addExpense = useCallback((e) => setExpenses(p => [e, ...p]), [setExpenses])
   const updateExpense = useCallback((e) => setExpenses(p => p.map(x => x.id === e.id ? e : x)), [setExpenses])
@@ -32,51 +34,48 @@ export default function App() {
   const updateInvestment = useCallback((i) => setInvestments(p => p.map(x => x.id === i.id ? i : x)), [setInvestments])
   const deleteInvestment = useCallback((id) => setInvestments(p => p.filter(x => x.id !== id)), [setInvestments])
 
+  const addIncome = useCallback((i) => setIncome(p => [i, ...p]), [setIncome])
+  const updateIncome = useCallback((i) => setIncome(p => p.map(x => x.id === i.id ? i : x)), [setIncome])
+  const deleteIncome = useCallback((id) => setIncome(p => p.filter(x => x.id !== id)), [setIncome])
+
   const content = {
     dashboard: (
       <Dashboard
-        expenses={expenses}
-        conversions={conversions}
-        investments={investments}
-        categories={categories}
+        expenses={expenses} conversions={conversions}
+        investments={investments} categories={categories} income={income}
+      />
+    ),
+    income: (
+      <Income
+        income={income} conversions={conversions}
+        onAdd={addIncome} onUpdate={updateIncome} onDelete={deleteIncome}
       />
     ),
     expenses: (
       <Expenses
-        expenses={expenses}
-        categories={categories}
-        conversions={conversions}
-        onAdd={addExpense}
-        onUpdate={updateExpense}
-        onDelete={deleteExpense}
+        expenses={expenses} categories={categories} conversions={conversions}
+        onAdd={addExpense} onUpdate={updateExpense} onDelete={deleteExpense}
       />
     ),
-    conversions: (
+    contadora: (
       <Conversions
         conversions={conversions}
-        onAddMultiple={addConversions}
-        onAdd={addConversion}
-        onDelete={deleteConversion}
+        onAddMultiple={addConversions} onAdd={addConversion} onDelete={deleteConversion}
       />
     ),
     investments: (
       <Investments
         investments={investments}
-        onAdd={addInvestment}
-        onUpdate={updateInvestment}
-        onDelete={deleteInvestment}
+        onAdd={addInvestment} onUpdate={updateInvestment} onDelete={deleteInvestment}
       />
     ),
     settings: (
       <Settings
-        categories={categories}
-        setCategories={setCategories}
-        expenses={expenses}
-        conversions={conversions}
-        investments={investments}
-        setExpenses={setExpenses}
-        setConversions={setConversions}
-        setInvestments={setInvestments}
+        categories={categories} setCategories={setCategories}
+        expenses={expenses} conversions={conversions}
+        investments={investments} income={income}
+        setExpenses={setExpenses} setConversions={setConversions}
+        setInvestments={setInvestments} setIncome={setIncome}
       />
     ),
   }
