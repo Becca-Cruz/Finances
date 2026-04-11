@@ -164,12 +164,12 @@ function ExpenseModal({ expense, categories, conversions, onSave, onClose }) {
   )
 }
 
-export default function Expenses({ expenses, categories, conversions, onAdd, onUpdate, onDelete, onAddConversions }) {
+export default function Expenses({ expenses, categories, conversions, onAdd, onUpdate, onDelete, onAddConversions, initialDateFrom = '', initialDateTo = '' }) {
   const [search, setSearch] = useState('')
   const [filterCat, setFilterCat] = useState('all')
   const [filterCur, setFilterCur] = useState('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState(initialDateFrom)
+  const [dateTo, setDateTo] = useState(initialDateTo)
   const [modal, setModal] = useState(null)
   const [importMsg, setImportMsg] = useState(null)
   const fileRef = useRef()

@@ -123,7 +123,7 @@ const CustomTooltip = ({ active, payload }) => {
   )
 }
 
-export default function Dashboard({ expenses, conversions, investments, categories, income }) {
+export default function Dashboard({ expenses, conversions, investments, categories, income, onNavigate }) {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewARS, setViewARS] = useState(false)
   const [pieCurrency, setPieCurrency] = useState('ARS')
@@ -182,8 +182,16 @@ export default function Dashboard({ expenses, conversions, investments, categori
     const val = viewARS
       ? monthExps.reduce((s, e) => s + e.amountARS, 0)
       : monthExps.reduce((s, e) => s + e.amountUSD, 0)
-    return { month: format(d, 'MMM'), value: parseFloat(val.toFixed(2)) }
+    return { month: format(d, 'MMM'), value: parseFloat(val.toFixed(2)), ym }
   })
+
+  const handleBarClick = (data) => {
+    if (!onNavigate || !data?.ym) return
+    const [y, m] = data.ym.split('-').map(Number)
+    const dateFrom = `${data.ym}-01`
+    const dateTo = `${data.ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+    onNavigate(dateFrom, dateTo)
+  }
 
   // Recent expenses
   const recent = [...expenses].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
@@ -325,7 +333,7 @@ export default function Dashboard({ expenses, conversions, investments, categori
               <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false}
                 tickFormatter={v => viewARS ? `$${(v/1000).toFixed(0)}k` : `$${v}`} />
               <Tooltip formatter={(v) => [fmtChartVal(v), 'Expenses']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} onClick={handleBarClick} cursor="pointer" />
             </BarChart>
           </ResponsiveContainer>
         </div>

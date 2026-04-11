@@ -11,6 +11,15 @@ import { DEFAULT_CATEGORIES } from './lib/defaults'
 
 export default function App() {
   const [page, setPage] = useState('dashboard')
+  const [expenseFilter, setExpenseFilter] = useState({ dateFrom: '', dateTo: '' })
+  const navigateToExpenses = useCallback((dateFrom, dateTo) => {
+    setExpenseFilter({ dateFrom, dateTo })
+    setPage('expenses')
+  }, [])
+  const handleSidebarNav = useCallback((p) => {
+    setExpenseFilter({ dateFrom: '', dateTo: '' })
+    setPage(p)
+  }, [])
   const [expenses, setExpenses] = useLocalStorage('fin_expenses', [])
   const [conversions, setConversions] = useLocalStorage('fin_conversions', [])
   const [investments, setInvestments] = useLocalStorage('fin_investments', [])
@@ -59,6 +68,7 @@ export default function App() {
       <Dashboard
         expenses={expenses} conversions={conversions}
         investments={investments} categories={categories} income={income}
+        onNavigate={navigateToExpenses}
       />
     ),
     income: (
@@ -72,6 +82,8 @@ export default function App() {
         expenses={expenses} categories={categories} conversions={conversions}
         onAdd={addExpense} onUpdate={updateExpense} onDelete={deleteExpense}
         onAddConversions={addConversions}
+        initialDateFrom={expenseFilter.dateFrom}
+        initialDateTo={expenseFilter.dateTo}
       />
     ),
     contadora: (
@@ -99,7 +111,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar page={page} onNavigate={setPage} />
+      <Sidebar page={page} onNavigate={handleSidebarNav} />
       <main className="flex-1 overflow-y-auto">
         {content[page]}
       </main>
