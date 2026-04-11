@@ -295,14 +295,22 @@ export default function Dashboard({ expenses, conversions, investments, categori
               No {pieCurrency} expenses this month
             </div>
           ) : (
-            <PieLegend
-              pieData={pieData}
-              categories={categories}
-              catMap={catMap}
-              fmtChartVal={fmtChartVal}
-              viewARS={viewARS}
-              monthExpenses={pieExpenses}
-            />
+            <>
+              <PieLegend
+                pieData={pieData}
+                categories={categories}
+                catMap={catMap}
+                fmtChartVal={fmtChartVal}
+                viewARS={viewARS}
+                monthExpenses={pieExpenses}
+              />
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100 px-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</span>
+                <span className="text-sm font-bold text-gray-900">
+                  {fmtChartVal(pieData.reduce((s, d) => s + d.value, 0))}
+                </span>
+              </div>
+            </>
           )}
         </div>
 
