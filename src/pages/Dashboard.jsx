@@ -4,9 +4,71 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
-import { ChevronLeft, ChevronRight, TrendingDown, PiggyBank, Repeat2, Wallet } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, TrendingDown, PiggyBank, Repeat2, Wallet } from 'lucide-react'
 import { getMonthlyRate, getRateForDate, fmtARS, fmtUSD, fmtRate, usdToArs } from '../lib/currency'
 import { getParentId } from '../lib/defaults'
+
+function PieLegend({ pieData, categories, catMap, fmtChartVal, viewARS, monthExpenses }) {
+  const [expanded, setExpanded] = useState({})
+  const toggle = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
+
+  return (
+    <div className="flex items-start gap-4">
+      <ResponsiveContainer width="45%" height={200}>
+        <PieChart>
+          <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={2}>
+            {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+          </Pie>
+          <Tooltip formatter={(v) => [fmtChartVal(v)]} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="flex-1 space-y-0.5 overflow-hidden py-1">
+        {pieData.map((d) => {
+          const children = categories.filter(c => c.parentId === d.id)
+          const hasChildren = children.some(child => {
+            const childVal = monthExpenses
+              .filter(e => e.category === child.id)
+              .reduce((s, e) => s + (viewARS ? e.amountARS : e.amountUSD), 0)
+            return childVal > 0
+          })
+          const isOpen = expanded[d.id]
+          return (
+            <div key={d.id}>
+              <button
+                onClick={() => hasChildren && toggle(d.id)}
+                className={`w-full flex items-center gap-2 text-xs py-1 px-1 rounded hover:bg-gray-50 transition-colors ${hasChildren ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+                <span className="text-gray-600 truncate flex-1 text-left">{d.name}</span>
+                <span className="font-medium text-gray-800 shrink-0">{fmtChartVal(d.value)}</span>
+                {hasChildren && (
+                  <ChevronDown size={12} className={`text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+              {isOpen && hasChildren && (
+                <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 pl-2" style={{ borderColor: d.color + '44' }}>
+                  {children.map(child => {
+                    const childVal = monthExpenses
+                      .filter(e => e.category === child.id)
+                      .reduce((s, e) => s + (viewARS ? e.amountARS : e.amountUSD), 0)
+                    if (!childVal) return null
+                    return (
+                      <div key={child.id} className="flex items-center gap-2 text-xs py-0.5">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: child.color }} />
+                        <span className="text-gray-500 truncate flex-1">{child.name}</span>
+                        <span className="text-gray-600 shrink-0">{fmtChartVal(childVal)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function StatCard({ icon: Icon, label, value, sub, color = 'blue' }) {
   const colors = {
@@ -188,25 +250,14 @@ export default function Dashboard({ expenses, conversions, investments, categori
           {pieData.length === 0 ? (
             <div className="h-52 flex items-center justify-center text-gray-400 text-sm">No expenses this month</div>
           ) : (
-            <div className="flex items-center gap-4">
-              <ResponsiveContainer width="55%" height={200}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={2}>
-                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => [fmtChartVal(v)]} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 space-y-1.5 overflow-hidden">
-                {pieData.map((d, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-                    <span className="text-gray-600 truncate flex-1">{d.name}</span>
-                    <span className="font-medium text-gray-800 shrink-0">{fmtChartVal(d.value)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PieLegend
+              pieData={pieData}
+              categories={categories}
+              catMap={catMap}
+              fmtChartVal={fmtChartVal}
+              viewARS={viewARS}
+              monthExpenses={monthExpenses}
+            />
           )}
         </div>
 
