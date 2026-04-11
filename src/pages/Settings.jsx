@@ -164,16 +164,26 @@ export default function Settings({
         </div>
       </div>
 
+      {/* Monthly imports tip */}
+      <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4">
+        <p className="text-sm font-semibold text-blue-700 mb-1">Monthly CSV imports</p>
+        <p className="text-xs text-blue-600 leading-relaxed">
+          To add your monthly data, export from Meow and go to:<br />
+          <span className="font-medium">Expenses → Import CSV</span> for your gastos &nbsp;·&nbsp;
+          <span className="font-medium">Contadora → Import CSV</span> for your transferencias
+        </p>
+      </div>
+
       {/* Data management */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700">Data Management</h3>
-          <p className="text-xs text-gray-400 mt-0.5">Your data is stored locally in this browser.</p>
+          <h3 className="text-sm font-semibold text-gray-700">Safety backup</h3>
+          <p className="text-xs text-gray-400 mt-0.5">In case you switch devices or clear your browser — not for monthly imports.</p>
         </div>
         <div className="p-5 space-y-3">
           <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
             <div>
-              <p className="text-sm font-medium text-gray-700">Export backup</p>
+              <p className="text-sm font-medium text-gray-700">Save a backup</p>
               <p className="text-xs text-gray-400 mt-0.5">
                 {expenses.length} expenses · {conversions.length} transfers · {investments.length} investments · {income.length} income entries
               </p>
@@ -182,17 +192,17 @@ export default function Settings({
               onClick={exportData}
               className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
             >
-              <Download size={14} /> Export backup
+              <Download size={14} /> Save backup
             </button>
           </div>
 
           <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 border border-gray-100">
             <div>
-              <p className="text-sm font-medium text-gray-700">Import backup</p>
-              <p className="text-xs text-gray-400 mt-0.5">Restores all data from a previous backup export.</p>
+              <p className="text-sm font-medium text-gray-700">Restore a backup</p>
+              <p className="text-xs text-gray-400 mt-0.5">Load a previously saved backup file.</p>
             </div>
             <label className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
-              <Upload size={14} /> Import backup
+              <Upload size={14} /> Restore backup
               <input type="file" accept=".json" className="hidden" onChange={importData} />
             </label>
           </div>
