@@ -126,6 +126,7 @@ const CustomTooltip = ({ active, payload }) => {
 export default function Dashboard({ expenses, conversions, investments, categories, income }) {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewARS, setViewARS] = useState(false)
+  const [pieCurrency, setPieCurrency] = useState('ARS')
 
   const yearMonth = format(selectedDate, 'yyyy-MM')
   const isCurrentMonth = format(new Date(), 'yyyy-MM') === yearMonth
@@ -154,9 +155,16 @@ export default function Dashboard({ expenses, conversions, investments, categori
   // Display helpers
   const fmt = (usd, ars) => viewARS ? fmtARS(ars) : fmtUSD(usd)
 
-  // Pie chart: group by parent category
+  // Split expenses by input currency for stat card
+  const arsExpenses = monthExpenses.filter(e => e.inputCurrency === 'ARS')
+  const usdExpenses = monthExpenses.filter(e => e.inputCurrency === 'USD')
+  const totalArsExpensesUSD = arsExpenses.reduce((s, e) => s + e.amountUSD, 0)
+  const totalUsdExpensesDirect = usdExpenses.reduce((s, e) => s + e.amountUSD, 0)
+
+  // Pie chart: group by parent category, filtered by input currency
+  const pieExpenses = monthExpenses.filter(e => e.inputCurrency === pieCurrency)
   const catMap = {}
-  for (const e of monthExpenses) {
+  for (const e of pieExpenses) {
     const pid = getParentId(e.category, categories)
     catMap[pid] = (catMap[pid] || 0) + (viewARS ? e.amountARS : e.amountUSD)
   }
@@ -233,7 +241,9 @@ export default function Dashboard({ expenses, conversions, investments, categori
           icon={TrendingDown}
           label="Expenses"
           value={fmt(totalExpensesUSD, totalExpensesARS)}
-          sub={`${monthExpenses.length} transaction${monthExpenses.length !== 1 ? 's' : ''}`}
+          sub={usdExpenses.length > 0
+            ? `ARS ${fmtUSD(totalArsExpensesUSD)} · USD ${fmtUSD(totalUsdExpensesDirect)}`
+            : `${monthExpenses.length} transaction${monthExpenses.length !== 1 ? 's' : ''}`}
           color="red"
         />
         <StatCard
@@ -265,9 +275,24 @@ export default function Dashboard({ expenses, conversions, investments, categori
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Expenses by Category</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-700">Expenses by Category</h3>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs bg-gray-50">
+              {['ARS', 'USD'].map(cur => (
+                <button
+                  key={cur}
+                  onClick={() => setPieCurrency(cur)}
+                  className={`px-2.5 py-1 font-medium transition-colors ${pieCurrency === cur ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                  {cur}
+                </button>
+              ))}
+            </div>
+          </div>
           {pieData.length === 0 ? (
-            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">No expenses this month</div>
+            <div className="h-52 flex items-center justify-center text-gray-400 text-sm">
+              No {pieCurrency} expenses this month
+            </div>
           ) : (
             <PieLegend
               pieData={pieData}
@@ -275,7 +300,7 @@ export default function Dashboard({ expenses, conversions, investments, categori
               catMap={catMap}
               fmtChartVal={fmtChartVal}
               viewARS={viewARS}
-              monthExpenses={monthExpenses}
+              monthExpenses={pieExpenses}
             />
           )}
         </div>
