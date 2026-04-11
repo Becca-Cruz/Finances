@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Search, Filter, Upload, Info } from 'lucide-react
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD, fmtRate } from '../lib/currency'
 import { getParentId } from '../lib/defaults'
-import { parseMeowExpensesCSV } from '../lib/csvParser'
+import { parseFullMeowCSV } from '../lib/csvParser'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -173,16 +173,17 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const parsed = parseMeowExpensesCSV(ev.target.result, categories, conversions)
-        if (parsed.length === 0) {
-          setImportMsg({ type: 'error', text: 'No expense rows found. Make sure this is a Meow CSV export.' })
-        } else {
-          const existingIds = new Set(expenses.map(x => x.id))
-          const toAdd = parsed.filter(p => !existingIds.has(p.id))
-          toAdd.forEach(onAdd)
-          const skipped = parsed.length - toAdd.length
-          setImportMsg({ type: 'ok', text: `Imported ${toAdd.length} expense${toAdd.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} duplicates skipped)` : ''}.` })
-        }
+        const { expenses: parsedExp, transfers } = parseFullMeowCSV(ev.target.result, categories, conversions)
+        const existingExpIds = new Set(expenses.map(x => x.id))
+        const expToAdd = parsedExp.filter(p => !existingExpIds.has(p.id))
+        expToAdd.forEach(onAdd)
+        if (transfers.length > 0) onAddConversions(transfers)
+        const parts = []
+        if (expToAdd.length) parts.push(`${expToAdd.length} gasto${expToAdd.length !== 1 ? 's' : ''}`)
+        if (transfers.length) parts.push(`${transfers.length} transferencia${transfers.length !== 1 ? 's' : ''} (Contadora)`)
+        setImportMsg(parts.length
+          ? { type: 'ok', text: `Imported: ${parts.join(' · ')}` }
+          : { type: 'error', text: 'No rows found. Make sure this is a Meow CSV export.' })
       } catch {
         setImportMsg({ type: 'error', text: 'Failed to parse the file.' })
       }

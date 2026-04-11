@@ -30,6 +30,13 @@ function parseCSVLine(line) {
   return cols
 }
 
+// Parse a full Meow export — returns both expenses and contadora transfers in one pass
+export function parseFullMeowCSV(csvText, categories, existingConversions) {
+  const expenses = parseMeowExpensesCSV(csvText, categories, existingConversions)
+  const transfers = parseDolarAppCSV(csvText)
+  return { expenses, transfers }
+}
+
 // Map Spanish category names from Meow to app category IDs
 function matchCategory(csvName, categories) {
   const lower = csvName.toLowerCase().trim()

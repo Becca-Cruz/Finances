@@ -1,7 +1,6 @@
-import { useState, useMemo, useRef } from 'react'
-import { Plus, Upload, Trash2, Info } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import Modal from '../components/Modal'
-import { parseDolarAppCSV } from '../lib/csvParser'
 import { fmtARS, fmtUSD, fmtRate, getMonthlyRate } from '../lib/currency'
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -62,29 +61,6 @@ function ManualModal({ onSave, onClose }) {
 
 export default function Conversions({ conversions, onAddMultiple, onAdd, onDelete }) {
   const [showManual, setShowManual] = useState(false)
-  const [importMsg, setImportMsg] = useState(null)
-  const fileRef = useRef()
-
-  const handleCSV = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const parsed = parseDolarAppCSV(ev.target.result)
-        if (parsed.length === 0) {
-          setImportMsg({ type: 'error', text: 'No valid rows found. Is this a DolarApp export?' })
-        } else {
-          onAddMultiple(parsed)
-          setImportMsg({ type: 'ok', text: `Imported ${parsed.length} conversion${parsed.length !== 1 ? 's' : ''} (duplicates skipped).` })
-        }
-      } catch {
-        setImportMsg({ type: 'error', text: 'Failed to parse the file.' })
-      }
-    }
-    reader.readAsText(file)
-    e.target.value = ''
-  }
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this conversion?')) onDelete(id)
@@ -116,30 +92,13 @@ export default function Conversions({ conversions, onAddMultiple, onAdd, onDelet
           <h2 className="text-xl font-bold text-gray-900">Contadora</h2>
           <p className="text-sm text-gray-500">USD → ARS transfers to declare with your accountant</p>
         </div>
-        <div className="flex gap-2">
-          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <Upload size={15} /> Import CSV
-          </button>
-          <button
-            onClick={() => setShowManual(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={15} /> Add Manually
-          </button>
-        </div>
+        <button
+          onClick={() => setShowManual(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          <Plus size={15} /> Add Manually
+        </button>
       </div>
-
-      {importMsg && (
-        <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${importMsg.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          <Info size={15} className="mt-0.5 shrink-0" />
-          <span>{importMsg.text}</span>
-          <button onClick={() => setImportMsg(null)} className="ml-auto text-xs underline">dismiss</button>
-        </div>
-      )}
 
       {/* Stats row */}
       {conversions.length > 0 && (

@@ -36,13 +36,15 @@ function PieLegend({ pieData, categories, catMap, fmtChartVal, viewARS, monthExp
             <div key={d.id}>
               <button
                 onClick={() => hasChildren && toggle(d.id)}
-                className={`w-full flex items-center gap-2 text-xs py-1 px-1 rounded hover:bg-gray-50 transition-colors ${hasChildren ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`w-full flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition-colors ${hasChildren ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default'}`}
               >
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-                <span className="text-gray-600 truncate flex-1 text-left">{d.name}</span>
-                <span className="font-medium text-gray-800 shrink-0">{fmtChartVal(d.value)}</span>
+                <span className="text-gray-700 truncate flex-1 text-left font-medium">{d.name}</span>
+                <span className="font-semibold text-gray-900 shrink-0">{fmtChartVal(d.value)}</span>
                 {hasChildren && (
-                  <ChevronDown size={12} className={`text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  <span className={`ml-1 flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown size={10} className="text-gray-600" />
+                  </span>
                 )}
               </button>
               {isOpen && hasChildren && (
