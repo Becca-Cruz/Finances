@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
-import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Plus, Pencil, Trash2, Search, Filter, Upload, Info } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD, fmtRate } from '../lib/currency'
 import { getParentId } from '../lib/defaults'
+import { parseMeowExpensesCSV } from '../lib/csvParser'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -162,7 +163,33 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
   const [filterCur, setFilterCur] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [modal, setModal] = useState(null) // null | 'add' | expense object
+  const [modal, setModal] = useState(null)
+  const [importMsg, setImportMsg] = useState(null)
+  const fileRef = useRef()
+
+  const handleCSV = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const parsed = parseMeowExpensesCSV(ev.target.result, categories, conversions)
+        if (parsed.length === 0) {
+          setImportMsg({ type: 'error', text: 'No expense rows found. Make sure this is a Meow CSV export.' })
+        } else {
+          const existingIds = new Set(expenses.map(x => x.id))
+          const toAdd = parsed.filter(p => !existingIds.has(p.id))
+          toAdd.forEach(onAdd)
+          const skipped = parsed.length - toAdd.length
+          setImportMsg({ type: 'ok', text: `Imported ${toAdd.length} expense${toAdd.length !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} duplicates skipped)` : ''}.` })
+        }
+      } catch {
+        setImportMsg({ type: 'error', text: 'Failed to parse the file.' })
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   const filtered = useMemo(() => {
     return expenses
@@ -198,13 +225,30 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
           <h2 className="text-xl font-bold text-gray-900">Expenses</h2>
           <p className="text-sm text-gray-500">Track your spending in ARS & USD</p>
         </div>
-        <button
-          onClick={() => setModal('add')}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={16} /> Add Expense
-        </button>
+        <div className="flex gap-2">
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleCSV} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Upload size={15} /> Import CSV
+          </button>
+          <button
+            onClick={() => setModal('add')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={16} /> Add Expense
+          </button>
+        </div>
       </div>
+
+      {importMsg && (
+        <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${importMsg.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          <Info size={15} className="mt-0.5 shrink-0" />
+          <span>{importMsg.text}</span>
+          <button onClick={() => setImportMsg(null)} className="ml-auto text-xs underline">dismiss</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
