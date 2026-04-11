@@ -61,6 +61,7 @@ function ManualModal({ onSave, onClose }) {
 
 export default function Conversions({ conversions, onAddMultiple, onAdd, onDelete }) {
   const [showManual, setShowManual] = useState(false)
+  const [statsView, setStatsView] = useState('all')
 
   const handleDelete = (id) => {
     if (window.confirm('Delete this conversion?')) onDelete(id)
@@ -82,8 +83,13 @@ export default function Conversions({ conversions, onAddMultiple, onAdd, onDelet
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]))
   }, [sorted])
 
-  const totalUSD = conversions.reduce((s, c) => s + c.amountUSD, 0)
-  const totalARS = conversions.reduce((s, c) => s + c.amountARS, 0)
+  const currentYM = new Date().toISOString().slice(0, 7)
+  const statsSource = statsView === 'month'
+    ? conversions.filter(c => c.date.startsWith(currentYM))
+    : conversions
+
+  const totalUSD = statsSource.reduce((s, c) => s + c.amountUSD, 0)
+  const totalARS = statsSource.reduce((s, c) => s + c.amountARS, 0)
 
   return (
     <div className="p-6 space-y-4">
@@ -102,18 +108,31 @@ export default function Conversions({ conversions, onAddMultiple, onAdd, onDelet
 
       {/* Stats row */}
       {conversions.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: 'Total USD Converted', value: fmtUSD(totalUSD) },
-            { label: 'Total ARS Received', value: fmtARS(totalARS) },
-            { label: 'All-time Avg Rate', value: `$${fmtRate(totalARS / totalUSD)}` },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{label}</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm bg-white shadow-sm w-fit">
+            {[['all', 'All Time'], ['month', 'This Month']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setStatsView(val)}
+                className={`px-3 py-1.5 font-medium transition-colors ${statsView === val ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: statsView === 'month' ? 'This Month USD' : 'Total USD Converted', value: fmtUSD(totalUSD) },
+              { label: statsView === 'month' ? 'This Month ARS' : 'Total ARS Received', value: fmtARS(totalARS) },
+              { label: statsView === 'month' ? 'Month Avg Rate' : 'All-time Avg Rate', value: totalUSD > 0 ? `$${fmtRate(totalARS / totalUSD)}` : '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">{label}</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Grouped by month */}
