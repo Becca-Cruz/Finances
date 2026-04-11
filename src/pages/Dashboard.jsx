@@ -49,14 +49,16 @@ function PieLegend({ pieData, categories, catMap, fmtChartVal, viewARS, monthExp
                 onClick={() => hasChildren && toggle(d.id)}
                 className={`w-full flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg transition-colors ${hasChildren ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default'}`}
               >
+                {hasChildren ? (
+                  <span className={`flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown size={10} className="text-gray-600" />
+                  </span>
+                ) : (
+                  <span className="w-4 shrink-0" />
+                )}
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
                 <span className="text-gray-700 truncate flex-1 text-left font-medium">{d.name}</span>
                 <span className="font-semibold text-gray-900 shrink-0">{fmtChartVal(d.value)}</span>
-                {hasChildren && (
-                  <span className={`ml-1 flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-                    <ChevronDown size={10} className="text-gray-600" />
-                  </span>
-                )}
               </button>
               {isOpen && (
                 <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 pl-2" style={{ borderColor: d.color + '44' }}>
