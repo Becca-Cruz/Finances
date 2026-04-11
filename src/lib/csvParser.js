@@ -1,6 +1,6 @@
 const MONTHS = {
   ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06',
-  jul: '07', ago: '08', sep: '09', oct: '10', nov: '11', dic: '12',
+  jul: '07', ago: '08', sep: '09', sept: '09', oct: '10', nov: '11', dic: '12',
 }
 
 function parseSpanishDate(raw) {
@@ -30,10 +30,13 @@ function parseCSVLine(line) {
   return cols
 }
 
-// Parse a full Meow export — returns both expenses and contadora transfers in one pass
+// Parse a full Meow export — returns both expenses and contadora transfers in one pass.
+// Transfers from the CSV are used as the rate source so multi-month imports get
+// correct USD amounts even when localStorage has no prior conversions for those months.
 export function parseFullMeowCSV(csvText, categories, existingConversions) {
-  const expenses = parseMeowExpensesCSV(csvText, categories, existingConversions)
   const transfers = parseDolarAppCSV(csvText)
+  const allConversions = [...transfers, ...existingConversions]
+  const expenses = parseMeowExpensesCSV(csvText, categories, allConversions)
   return { expenses, transfers }
 }
 
