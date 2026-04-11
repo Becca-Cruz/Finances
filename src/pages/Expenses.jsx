@@ -174,16 +174,23 @@ export default function Expenses({ expenses, categories, conversions, onAdd, onU
     reader.onload = (ev) => {
       try {
         const { expenses: parsedExp, transfers } = parseFullMeowCSV(ev.target.result, categories, conversions)
-        const existingExpIds = new Set(expenses.map(x => x.id))
-        const expToAdd = parsedExp.filter(p => !existingExpIds.has(p.id))
+        const existingExpMap = new Map(expenses.map(x => [x.id, x]))
+        const expToAdd = parsedExp.filter(p => !existingExpMap.has(p.id))
+        // Update existing expenses that were saved with amountUSD=0 because no rate was available yet
+        const expToUpdate = parsedExp.filter(p => {
+          const existing = existingExpMap.get(p.id)
+          return existing && existing.amountUSD === 0 && p.amountUSD > 0
+        })
         expToAdd.forEach(onAdd)
+        expToUpdate.forEach(onUpdate)
         if (transfers.length > 0) onAddConversions(transfers)
         const parts = []
         if (expToAdd.length) parts.push(`${expToAdd.length} gasto${expToAdd.length !== 1 ? 's' : ''}`)
+        if (expToUpdate.length) parts.push(`${expToUpdate.length} actualizados con tasa`)
         if (transfers.length) parts.push(`${transfers.length} transferencia${transfers.length !== 1 ? 's' : ''} (Contadora)`)
         setImportMsg(parts.length
           ? { type: 'ok', text: `Imported: ${parts.join(' · ')}` }
-          : { type: 'error', text: 'No rows found. Make sure this is a Meow CSV export.' })
+          : { type: 'ok', text: 'Already up to date — no new rows.' })
       } catch {
         setImportMsg({ type: 'error', text: 'Failed to parse the file.' })
       }
