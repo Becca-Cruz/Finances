@@ -1,41 +1,11 @@
 import { useState, useRef } from 'react'
-import { Upload, TrendingUp, DollarSign, PiggyBank, Percent, ChevronDown, ChevronUp } from 'lucide-react'
+import { Upload, TrendingUp, DollarSign, PiggyBank, Percent, ChevronDown, ChevronUp, Pencil, Check, X } from 'lucide-react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { fmtUSD } from '../lib/currency'
 import { parseEtoroXLSX } from '../lib/etoroParser'
-
-function StatCard({ icon: Icon, label, value, sub, color = 'blue', positive }) {
-  const colors = {
-    blue:   'bg-blue-50 text-blue-600',
-    green:  'bg-green-50 text-green-600',
-    amber:  'bg-amber-50 text-amber-600',
-    purple: 'bg-purple-50 text-purple-600',
-  }
-  return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div className="flex items-start justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
-          <p className={`text-2xl font-bold mt-1 ${positive === true ? 'text-green-600' : positive === false ? 'text-red-500' : 'text-gray-900'}`}>
-            {value}
-          </p>
-          {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
-        </div>
-        <span className={`p-2.5 rounded-lg shrink-0 ml-2 ${colors[color]}`}>
-          <Icon size={18} />
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function MonthLabel({ ym }) {
-  const [y, m] = ym.split('-').map(Number)
-  return new Date(y, m - 1).toLocaleString('en-US', { month: 'short', year: '2-digit' })
-}
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -59,6 +29,8 @@ export default function eToro({ data, onImport }) {
   const fileRef = useRef()
   const [importErr, setImportErr] = useState(null)
   const [showDividends, setShowDividends] = useState(false)
+  const [editingValue, setEditingValue] = useState(false)
+  const [valueInput, setValueInput] = useState('')
 
   const handleFile = (e) => {
     const file = e.target.files?.[0]
@@ -67,15 +39,34 @@ export default function eToro({ data, onImport }) {
     reader.onload = (ev) => {
       try {
         const parsed = parseEtoroXLSX(ev.target.result)
-        onImport(parsed)
+        // Preserve existing portfolio value if already set
+        onImport({ ...parsed, portfolioValue: data?.portfolioValue ?? null })
         setImportErr(null)
-      } catch (err) {
-        setImportErr('Failed to parse the file. Make sure it\'s an eToro account statement (.xlsx).')
+      } catch {
+        setImportErr("Failed to parse the file. Make sure it's an eToro account statement (.xlsx).")
       }
     }
     reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
+
+  const startEdit = () => {
+    setValueInput(data?.portfolioValue?.toString() || '')
+    setEditingValue(true)
+  }
+
+  const saveValue = () => {
+    const v = parseFloat(valueInput)
+    onImport({ ...data, portfolioValue: isNaN(v) ? null : v })
+    setEditingValue(false)
+  }
+
+  const cancelEdit = () => setEditingValue(false)
+
+  // Use manually entered portfolio value if available, otherwise fall back to last realized equity
+  const portfolioValue = data?.portfolioValue ?? data?.lastEquity ?? 0
+  const profit = data ? parseFloat((portfolioValue - (data.totalDeposited || 0)).toFixed(2)) : 0
+  const pct = data?.totalDeposited > 0 ? ((profit / data.totalDeposited) * 100).toFixed(2) : '0.00'
 
   const chartData = data?.months?.map(m => ({
     month: new Date(parseInt(m.ym.split('-')[0]), parseInt(m.ym.split('-')[1]) - 1)
@@ -85,10 +76,6 @@ export default function eToro({ data, onImport }) {
     'Portfolio Value': m.lastEquity,
     'Total Deposited': m.totalDeposited,
   })) || []
-
-  const pct = data?.totalDeposited > 0
-    ? ((data.profit / data.totalDeposited) * 100).toFixed(2)
-    : '0.00'
 
   return (
     <div className="p-6 space-y-6">
@@ -127,35 +114,76 @@ export default function eToro({ data, onImport }) {
         <>
           {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              icon={DollarSign}
-              label="Total Deposited"
-              value={fmtUSD(data.totalDeposited)}
-              sub={`${data.months.length} months`}
-              color="blue"
-            />
-            <StatCard
-              icon={PiggyBank}
-              label="Portfolio Value"
-              value={fmtUSD(data.lastEquity)}
-              sub={`as of ${data.months[data.months.length - 1]?.ym}`}
-              color="purple"
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Dividends"
-              value={fmtUSD(data.totalDividends)}
-              sub={`${Object.keys(data.byInstrument).length} assets`}
-              color="green"
-            />
-            <StatCard
-              icon={Percent}
-              label="Total P&L"
-              value={`${data.profit >= 0 ? '+' : ''}${fmtUSD(data.profit)}`}
-              sub={`${data.profit >= 0 ? '+' : ''}${pct}% return`}
-              color="amber"
-              positive={data.profit >= 0}
-            />
+            {/* Total Deposited */}
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Deposited</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{fmtUSD(data.totalDeposited)}</p>
+                  <p className="text-xs text-gray-400 mt-1">{data.months.length} months</p>
+                </div>
+                <span className="p-2.5 rounded-lg shrink-0 ml-2 bg-blue-50 text-blue-600"><DollarSign size={18} /></span>
+              </div>
+            </div>
+
+            {/* Portfolio Value — editable */}
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio Value</p>
+                  {editingValue ? (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-gray-400 text-sm">$</span>
+                      <input
+                        type="number"
+                        className="w-full text-xl font-bold text-gray-900 border-b border-blue-400 focus:outline-none bg-transparent"
+                        value={valueInput}
+                        onChange={e => setValueInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveValue(); if (e.key === 'Escape') cancelEdit() }}
+                        autoFocus
+                      />
+                      <button onClick={saveValue} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={14} /></button>
+                      <button onClick={cancelEdit} className="p-1 text-gray-400 hover:bg-gray-100 rounded"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-2xl font-bold text-purple-700">{fmtUSD(portfolioValue)}</p>
+                      <button onClick={startEdit} className="p-1 text-gray-300 hover:text-gray-600 transition-colors"><Pencil size={13} /></button>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    {data.portfolioValue != null ? 'manually entered' : 'from statement'}
+                  </p>
+                </div>
+                <span className="p-2.5 rounded-lg shrink-0 ml-2 bg-purple-50 text-purple-600"><PiggyBank size={18} /></span>
+              </div>
+            </div>
+
+            {/* Dividends */}
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Dividends</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{fmtUSD(data.totalDividends)}</p>
+                  <p className="text-xs text-gray-400 mt-1">{Object.keys(data.byInstrument).length} assets</p>
+                </div>
+                <span className="p-2.5 rounded-lg shrink-0 ml-2 bg-green-50 text-green-600"><TrendingUp size={18} /></span>
+              </div>
+            </div>
+
+            {/* P&L */}
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total P&L</p>
+                  <p className={`text-2xl font-bold mt-1 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                    {profit >= 0 ? '+' : ''}{fmtUSD(profit)}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">{profit >= 0 ? '+' : ''}{pct}% return</p>
+                </div>
+                <span className="p-2.5 rounded-lg shrink-0 ml-2 bg-amber-50 text-amber-600"><Percent size={18} /></span>
+              </div>
+            </div>
           </div>
 
           {/* Chart */}
@@ -184,7 +212,7 @@ export default function eToro({ data, onImport }) {
               </ComposedChart>
             </ResponsiveContainer>
             <p className="text-xs text-gray-400 mt-2 text-right">
-              Solid line = portfolio value · Dashed = total deposited
+              Solid line = portfolio value (from statement) · Dashed = total deposited
             </p>
           </div>
 
