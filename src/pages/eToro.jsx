@@ -82,7 +82,7 @@ export default function eToro({ data, onImport }) {
       .toLocaleString('en-US', { month: 'short', year: '2-digit' }),
     Deposit: m.deposit,
     Dividends: m.dividends,
-    Balance: m.lastEquity,
+    'Portfolio Value': m.lastEquity,
     'Total Deposited': m.totalDeposited,
   })) || []
 
@@ -136,9 +136,9 @@ export default function eToro({ data, onImport }) {
             />
             <StatCard
               icon={PiggyBank}
-              label="Account Balance"
+              label="Portfolio Value"
               value={fmtUSD(data.lastEquity)}
-              sub="Realized equity"
+              sub={`as of ${data.months[data.months.length - 1]?.ym}`}
               color="purple"
             />
             <StatCard
@@ -179,12 +179,12 @@ export default function eToro({ data, onImport }) {
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                 <Bar yAxisId="left" dataKey="Deposit" fill="#3b82f6" radius={[3, 3, 0, 0]} barSize={28} />
                 <Bar yAxisId="left" dataKey="Dividends" fill="#10b981" radius={[3, 3, 0, 0]} barSize={28} />
-                <Line yAxisId="right" type="monotone" dataKey="Balance" stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed' }} />
+                <Line yAxisId="right" type="monotone" dataKey="Portfolio Value" stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 4, fill: '#7c3aed' }} />
                 <Line yAxisId="right" type="monotone" dataKey="Total Deposited" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
             <p className="text-xs text-gray-400 mt-2 text-right">
-              Solid line = realized equity · Dashed = total deposited · Balance ≠ market value (no live prices)
+              Solid line = portfolio value · Dashed = total deposited
             </p>
           </div>
 
@@ -196,7 +196,7 @@ export default function eToro({ data, onImport }) {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {['Month', 'Deposit', 'Total Deposited', 'Balance', 'Dividends', 'P&L'].map(h => (
+                  {['Month', 'Deposit', 'Total Deposited', 'Portfolio Value', 'Dividends', 'P&L'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
                       {h}
                     </th>
