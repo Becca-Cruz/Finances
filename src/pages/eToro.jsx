@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, TrendingUp, DollarSign, PiggyBank, Percent, ChevronDown, ChevronUp, Pencil, Check, X } from 'lucide-react'
+import { Upload, TrendingUp, DollarSign, PiggyBank, Percent, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
@@ -29,8 +29,6 @@ export default function eToro({ data, onImport }) {
   const fileRef = useRef()
   const [importErr, setImportErr] = useState(null)
   const [showDividends, setShowDividends] = useState(false)
-  const [editingValue, setEditingValue] = useState(false)
-  const [valueInput, setValueInput] = useState('')
 
   const handleFile = (e) => {
     const file = e.target.files?.[0]
@@ -38,9 +36,7 @@ export default function eToro({ data, onImport }) {
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
-        const parsed = parseEtoroXLSX(ev.target.result)
-        // Preserve existing portfolio value if already set
-        onImport({ ...parsed, portfolioValue: data?.portfolioValue ?? null })
+        onImport(parseEtoroXLSX(ev.target.result))
         setImportErr(null)
       } catch {
         setImportErr("Failed to parse the file. Make sure it's an eToro account statement (.xlsx).")
@@ -50,21 +46,7 @@ export default function eToro({ data, onImport }) {
     e.target.value = ''
   }
 
-  const startEdit = () => {
-    setValueInput(data?.portfolioValue?.toString() || '')
-    setEditingValue(true)
-  }
-
-  const saveValue = () => {
-    const v = parseFloat(valueInput)
-    onImport({ ...data, portfolioValue: isNaN(v) ? null : v })
-    setEditingValue(false)
-  }
-
-  const cancelEdit = () => setEditingValue(false)
-
-  // Use manually entered portfolio value if available, otherwise fall back to last realized equity
-  const portfolioValue = data?.portfolioValue ?? data?.lastEquity ?? 0
+  const portfolioValue = data?.lastEquity ?? 0
   const profit = data ? parseFloat((portfolioValue - (data.totalDeposited || 0)).toFixed(2)) : 0
   const pct = data?.totalDeposited > 0 ? ((profit / data.totalDeposited) * 100).toFixed(2) : '0.00'
 
@@ -126,34 +108,13 @@ export default function eToro({ data, onImport }) {
               </div>
             </div>
 
-            {/* Portfolio Value — editable */}
+            {/* Portfolio Value */}
             <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
               <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio Value</p>
-                  {editingValue ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-gray-400 text-sm">$</span>
-                      <input
-                        type="number"
-                        className="w-full text-xl font-bold text-gray-900 border-b border-blue-400 focus:outline-none bg-transparent"
-                        value={valueInput}
-                        onChange={e => setValueInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveValue(); if (e.key === 'Escape') cancelEdit() }}
-                        autoFocus
-                      />
-                      <button onClick={saveValue} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={14} /></button>
-                      <button onClick={cancelEdit} className="p-1 text-gray-400 hover:bg-gray-100 rounded"><X size={14} /></button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-2xl font-bold text-purple-700">{fmtUSD(portfolioValue)}</p>
-                      <button onClick={startEdit} className="p-1 text-gray-300 hover:text-gray-600 transition-colors"><Pencil size={13} /></button>
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {data.portfolioValue != null ? 'manually entered' : 'from statement'}
-                  </p>
+                  <p className="text-2xl font-bold text-purple-700 mt-1">{fmtUSD(portfolioValue)}</p>
+                  <p className="text-xs text-gray-400 mt-1">Realized equity</p>
                 </div>
                 <span className="p-2.5 rounded-lg shrink-0 ml-2 bg-purple-50 text-purple-600"><PiggyBank size={18} /></span>
               </div>
