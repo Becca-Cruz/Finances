@@ -5,6 +5,7 @@ import Income from './pages/Income'
 import Expenses from './pages/Expenses'
 import Conversions from './pages/Conversions'
 import Investments from './pages/Investments'
+import EToroPage from './pages/eToro'
 import Settings from './pages/Settings'
 import { useLocalStorage } from './lib/storage'
 import { DEFAULT_CATEGORIES } from './lib/defaults'
@@ -25,6 +26,7 @@ export default function App() {
   const [investments, setInvestments] = useLocalStorage('fin_investments', [])
   const [categories, setCategories] = useLocalStorage('fin_categories', DEFAULT_CATEGORIES)
   const [income, setIncome] = useLocalStorage('fin_income', [])
+  const [etoroData, setEtoroData] = useLocalStorage('fin_etoro', null)
 
   // Migrate categories: add parentId field + add any missing default subcategories
   useEffect(() => {
@@ -97,6 +99,9 @@ export default function App() {
         investments={investments}
         onAdd={addInvestment} onUpdate={updateInvestment} onDelete={deleteInvestment}
       />
+    ),
+    etoro: (
+      <EToroPage data={etoroData} onImport={setEtoroData} />
     ),
     settings: (
       <Settings
