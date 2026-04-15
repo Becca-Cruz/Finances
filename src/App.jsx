@@ -4,7 +4,6 @@ import Dashboard from './pages/Dashboard'
 import Income from './pages/Income'
 import Expenses from './pages/Expenses'
 import Conversions from './pages/Conversions'
-import Investments from './pages/Investments'
 import EToroPage from './pages/eToro'
 import Settings from './pages/Settings'
 import { useLocalStorage } from './lib/storage'
@@ -45,6 +44,12 @@ export default function App() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addExpense = useCallback((e) => setExpenses(p => [e, ...p]), [setExpenses])
+  const addExpenses = useCallback((items) => {
+    setExpenses(p => {
+      const ids = new Set(p.map(x => x.id))
+      return [...items.filter(x => !ids.has(x.id)), ...p]
+    })
+  }, [setExpenses])
   const updateExpense = useCallback((e) => setExpenses(p => p.map(x => x.id === e.id ? e : x)), [setExpenses])
   const deleteExpense = useCallback((id) => setExpenses(p => p.filter(x => x.id !== id)), [setExpenses])
 
@@ -94,14 +99,11 @@ export default function App() {
         onAddMultiple={addConversions} onAdd={addConversion} onDelete={deleteConversion}
       />
     ),
-    investments: (
-      <Investments
-        investments={investments}
-        onAdd={addInvestment} onUpdate={updateInvestment} onDelete={deleteInvestment}
-      />
-    ),
     etoro: (
-      <EToroPage data={etoroData} onImport={setEtoroData} />
+      <EToroPage
+        data={etoroData} onImport={setEtoroData}
+        onAddExpenses={addExpenses} expenses={expenses}
+      />
     ),
     settings: (
       <Settings
