@@ -5,6 +5,7 @@ import Income from './pages/Income'
 import Expenses from './pages/Expenses'
 import Conversions from './pages/Conversions'
 import EToroPage from './pages/eToro'
+import Stats from './pages/Stats'
 import Settings from './pages/Settings'
 import { useLocalStorage } from './lib/storage'
 import { DEFAULT_CATEGORIES } from './lib/defaults'
@@ -104,6 +105,9 @@ export default function App() {
         data={etoroData} onImport={setEtoroData}
         onAddExpenses={addExpenses} expenses={expenses}
       />
+    ),
+    stats: (
+      <Stats expenses={expenses} income={income} categories={categories} />
     ),
     settings: (
       <Settings
