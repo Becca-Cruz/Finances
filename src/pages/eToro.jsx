@@ -56,19 +56,67 @@ export default function eToro({ data, onImport, onAddExpenses, expenses }) {
     reader.onload = (ev) => {
       try {
         const parsed = parseEtoroXLSX(ev.target.result)
-        // Preserve existing month balances across re-imports
-        onImport({ ...parsed, monthBalances: data?.monthBalances || {} })
-        // Import deposit expenses (deduped)
+
+        // ── Merge months: keep old months not in new file, new file wins on overlap ──
+        const existingMonths = data?.months || []
+        const newYMs = new Set(parsed.months.map(m => m.ym))
+        const mergedMonths = [
+          ...existingMonths.filter(m => !newYMs.has(m.ym)),
+          ...parsed.months,
+        ].sort((a, b) => a.ym.localeCompare(b.ym))
+
+        // Recalculate cumulative totalDeposited across all merged months
+        let cum = 0
+        for (const m of mergedMonths) {
+          cum += m.deposit
+          m.totalDeposited = parseFloat(cum.toFixed(2))
+        }
+
+        // ── Merge monthPositions: new wins on overlap, then re-derive aggregate ──
+        const mergedMonthPos = { ...(data?.monthPositions || {}), ...parsed.monthPositions }
+        const mergedPositions = {}
+        for (const pos of Object.values(mergedMonthPos)) {
+          for (const [t, v] of Object.entries(pos)) {
+            mergedPositions[t] = parseFloat(((mergedPositions[t] || 0) + v).toFixed(2))
+          }
+        }
+
+        // ── Merge dividends: dedup by date+instrument+amount ──
+        const divKey = d => `${d.date}-${d.instrument}-${d.amount}`
+        const existingDivKeys = new Set((data?.dividends || []).map(divKey))
+        const mergedDivs = [
+          ...(data?.dividends || []),
+          ...parsed.dividends.filter(d => !existingDivKeys.has(divKey(d))),
+        ]
+
+        const byInstrument = {}
+        for (const d of mergedDivs) {
+          byInstrument[d.instrument] = parseFloat(((byInstrument[d.instrument] || 0) + d.amount).toFixed(2))
+        }
+
+        onImport({
+          months: mergedMonths,
+          dividends: mergedDivs,
+          byInstrument,
+          positions: mergedPositions,
+          monthPositions: mergedMonthPos,
+          totalDeposited: mergedMonths[mergedMonths.length - 1]?.totalDeposited || 0,
+          totalDividends: parseFloat(mergedDivs.reduce((s, d) => s + d.amount, 0).toFixed(2)),
+          monthBalances: data?.monthBalances || {},
+        })
+
+        // ── Import new deposit expenses (deduped by ID) ──
         if (parsed.depositExpenses?.length && onAddExpenses) {
           const existingIds = new Set((expenses || []).map(x => x.id))
           const newDeps = parsed.depositExpenses.filter(d => !existingIds.has(d.id))
           if (newDeps.length) {
             onAddExpenses(newDeps)
-            setImportMsg(`Imported ${newDeps.length} deposit expense${newDeps.length !== 1 ? 's' : ''} to Expenses.`)
+            setImportMsg(`Merged ${parsed.months.length} month${parsed.months.length !== 1 ? 's' : ''} · ${newDeps.length} new deposit expense${newDeps.length !== 1 ? 's' : ''} added.`)
           } else {
-            setImportMsg('Deposits already up to date.')
+            setImportMsg(`Merged ${parsed.months.length} month${parsed.months.length !== 1 ? 's' : ''} · deposits already up to date.`)
           }
         }
+
         setImportErr(null)
       } catch {
         setImportErr("Failed to parse the file. Make sure it's an eToro account statement (.xlsx).")

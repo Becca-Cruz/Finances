@@ -44,12 +44,20 @@ export function parseEtoroXLSX(arrayBuffer) {
     }))
     .filter(r => r.date && r.amount > 0)
 
-  // ── Asset allocation from Open Positions ──────────────────────────────
-  const positions = {}
+  // ── Asset allocation from Open Positions (tracked per month for safe merging) ──
+  const monthPositions = {}
   for (const r of activity) {
     if (r.type === 'Open Position') {
+      const ym = r.date.slice(0, 7)
       const ticker = r.details.split('/')[0]
-      positions[ticker] = parseFloat(((positions[ticker] || 0) + r.amount).toFixed(2))
+      if (!monthPositions[ym]) monthPositions[ym] = {}
+      monthPositions[ym][ticker] = parseFloat(((monthPositions[ym][ticker] || 0) + r.amount).toFixed(2))
+    }
+  }
+  const positions = {}
+  for (const pos of Object.values(monthPositions)) {
+    for (const [t, v] of Object.entries(pos)) {
+      positions[t] = parseFloat(((positions[t] || 0) + v).toFixed(2))
     }
   }
 
@@ -106,6 +114,7 @@ export function parseEtoroXLSX(arrayBuffer) {
     dividends,
     byInstrument,
     positions,
+    monthPositions,
     depositExpenses,
     totalDeposited,
     totalDividends,
