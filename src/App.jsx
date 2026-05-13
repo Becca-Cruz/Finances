@@ -8,6 +8,7 @@ import EToroPage from './pages/eToro'
 import Stats from './pages/Stats'
 import RWDashboard from './pages/RWDashboard'
 import RWGastos from './pages/RWGastos'
+import RWVentas from './pages/RWVentas'
 import Settings from './pages/Settings'
 import { useLocalStorage } from './lib/storage'
 import { DEFAULT_CATEGORIES } from './lib/defaults'
@@ -33,6 +34,11 @@ export default function App() {
   const addRwExpense    = useCallback((e) => setRwExpenses(p => [e, ...p]), [setRwExpenses])
   const updateRwExpense = useCallback((e) => setRwExpenses(p => p.map(x => x.id === e.id ? e : x)), [setRwExpenses])
   const deleteRwExpense = useCallback((id) => setRwExpenses(p => p.filter(x => x.id !== id)), [setRwExpenses])
+
+  const [rwSales, setRwSales] = useLocalStorage('rw_sales', [])
+  const addRwSale    = useCallback((s) => setRwSales(p => [s, ...p]), [setRwSales])
+  const updateRwSale = useCallback((s) => setRwSales(p => p.map(x => x.id === s.id ? s : x)), [setRwSales])
+  const deleteRwSale = useCallback((id) => setRwSales(p => p.filter(x => x.id !== id)), [setRwSales])
 
   // Migrate categories: add parentId field + add any missing default subcategories
   useEffect(() => {
@@ -116,12 +122,18 @@ export default function App() {
       <Stats expenses={expenses} income={income} categories={categories} />
     ),
     'rw-dashboard': (
-      <RWDashboard expenses={rwExpenses} />
+      <RWDashboard expenses={rwExpenses} sales={rwSales} />
     ),
     'rw-gastos': (
       <RWGastos
         expenses={rwExpenses} conversions={conversions}
         onAdd={addRwExpense} onUpdate={updateRwExpense} onDelete={deleteRwExpense}
+      />
+    ),
+    'rw-ventas': (
+      <RWVentas
+        sales={rwSales}
+        onAdd={addRwSale} onUpdate={updateRwSale} onDelete={deleteRwSale}
       />
     ),
     settings: (
