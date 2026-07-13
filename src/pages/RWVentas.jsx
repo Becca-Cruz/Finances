@@ -1,10 +1,38 @@
 import { useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Camera, X } from 'lucide-react'
 import Modal from '../components/Modal'
 import { fmtARS } from '../lib/currency'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
+
+function compressImage(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        if (width > height && width > maxDim) {
+          height = Math.round(height * (maxDim / width))
+          width = maxDim
+        } else if (height > maxDim) {
+          width = Math.round(width * (maxDim / height))
+          height = maxDim
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.onerror = reject
+      img.src = e.target.result
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 export const CHANNELS = [
   { id: 'instagram',  name: 'Instagram',  color: '#ec4899' },
@@ -23,12 +51,29 @@ function SaleModal({ sale, onSave, onClose }) {
     priceARS:    sale?.priceARS?.toString() || '',
     channel:     sale?.channel     || 'instagram',
     notes:       sale?.notes       || '',
+    photo:       sale?.photo       || null,
   })
+  const [uploading, setUploading] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const qty   = parseInt(form.quantity)  || 1
   const price = parseFloat(form.priceARS) || 0
   const total = qty * price
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await compressImage(file)
+      set('photo', dataUrl)
+    } catch (err) {
+      console.error('Error al procesar la foto', err)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
 
   const handleSave = () => {
     if (!form.description.trim() || !price) return
@@ -41,6 +86,7 @@ function SaleModal({ sale, onSave, onClose }) {
       totalARS:    parseFloat(total.toFixed(2)),
       channel:     form.channel,
       notes:       form.notes.trim(),
+      photo:       form.photo || null,
     })
     onClose()
   }
@@ -91,6 +137,25 @@ function SaleModal({ sale, onSave, onClose }) {
           <input type="text" className={inputCls} placeholder="Color, cliente, etc." value={form.notes} onChange={e => set('notes', e.target.value)} />
         </div>
 
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Foto del pedido (opcional)</label>
+          {form.photo ? (
+            <div className="relative inline-block">
+              <img src={form.photo} alt="Pedido" className="h-24 w-24 object-cover rounded-lg border border-gray-200" />
+              <button type="button" onClick={() => set('photo', null)}
+                className="absolute -top-2 -right-2 bg-white border border-gray-200 rounded-full p-1 text-gray-500 hover:text-red-600 shadow-sm">
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 cursor-pointer hover:bg-gray-50 w-fit">
+              <Camera size={16} />
+              {uploading ? 'Procesando...' : 'Adjuntar foto'}
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} disabled={uploading} />
+            </label>
+          )}
+        </div>
+
         <div className="flex gap-2 pt-2">
           <button onClick={handleSave} className="flex-1 py-2 bg-pink-600 text-white rounded-lg text-sm font-medium hover:bg-pink-700">Save</button>
           <button onClick={onClose}   className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>
@@ -104,6 +169,7 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
   const [modal, setModal] = useState(null)
   const [search, setSearch] = useState('')
   const [filterChannel, setFilterChannel] = useState('all')
+  const [lightbox, setLightbox] = useState(null)
 
   const filtered = useMemo(() => {
     return sales
@@ -192,8 +258,16 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
                   <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{s.date}</td>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-800">{s.description}</p>
-                      {s.notes && <p className="text-xs text-gray-400 mt-0.5">{s.notes}</p>}
+                      <div className="flex items-center gap-2">
+                        {s.photo && (
+                          <img src={s.photo} alt="Pedido" onClick={() => setLightbox(s.photo)}
+                            className="h-9 w-9 rounded-md object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" />
+                        )}
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{s.description}</p>
+                          {s.notes && <p className="text-xs text-gray-400 mt-0.5">{s.notes}</p>}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: ch.color + '22', color: ch.color }}>{ch.name}</span>
@@ -221,6 +295,15 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
           onSave={modal === 'add' ? onAdd : onUpdate}
           onClose={() => setModal(null)}
         />
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <img src={lightbox} alt="Pedido" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+        </div>
       )}
     </div>
   )
