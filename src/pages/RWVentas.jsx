@@ -37,28 +37,43 @@ function compressImage(file, maxDim = 900, quality = 0.72) {
 export const CHANNELS = [
   { id: 'instagram',  name: 'Instagram',  color: '#ec4899' },
   { id: 'whatsapp',   name: 'WhatsApp',   color: '#10b981' },
+  { id: 'tiktok',     name: 'TikTok',     color: '#000000' },
   { id: 'presencial', name: 'Presencial', color: '#3b82f6' },
   { id: 'otros',      name: 'Otros',      color: '#6b7280' },
 ]
 
-const getCh = (id) => CHANNELS.find(c => c.id === id) || CHANNELS[3]
+const getCh = (id) => CHANNELS.find(c => c.id === id) || CHANNELS.find(c => c.id === 'otros')
+
+// Sales saved before multi-item support only have flat description/quantity/priceARS fields.
+const getItems = (sale) => (sale.items && sale.items.length)
+  ? sale.items
+  : [{ description: sale.description, quantity: sale.quantity, priceARS: sale.priceARS }]
 
 function SaleModal({ sale, onSave, onClose }) {
   const [form, setForm] = useState({
-    date:        sale?.date        || today(),
-    description: sale?.description || '',
-    quantity:    sale?.quantity?.toString() || '1',
-    priceARS:    sale?.priceARS?.toString() || '',
-    channel:     sale?.channel     || 'instagram',
-    notes:       sale?.notes       || '',
-    photo:       sale?.photo       || null,
+    date:    sale?.date    || today(),
+    channel: sale?.channel || 'instagram',
+    notes:   sale?.notes   || '',
+    photo:   sale?.photo   || null,
+  })
+  const [items, setItems] = useState(() => {
+    if (!sale) return [{ id: uid(), description: '', quantity: '1', priceARS: '' }]
+    return getItems(sale).map(it => ({
+      id:          uid(),
+      description: it.description || '',
+      quantity:    it.quantity?.toString() || '1',
+      priceARS:    it.priceARS?.toString() || '',
+    }))
   })
   const [uploading, setUploading] = useState(false)
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const qty   = parseInt(form.quantity)  || 1
-  const price = parseFloat(form.priceARS) || 0
-  const total = qty * price
+  const set     = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const setItem = (id, k, v) => setItems(list => list.map(it => it.id === id ? { ...it, [k]: v } : it))
+  const addItem = () => setItems(list => [...list, { id: uid(), description: '', quantity: '1', priceARS: '' }])
+  const removeItem = (id) => setItems(list => list.length > 1 ? list.filter(it => it.id !== id) : list)
+
+  const itemTotals = items.map(it => (parseInt(it.quantity) || 0) * (parseFloat(it.priceARS) || 0))
+  const total = itemTotals.reduce((s, t) => s + t, 0)
 
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0]
@@ -76,22 +91,31 @@ function SaleModal({ sale, onSave, onClose }) {
   }
 
   const handleSave = () => {
-    if (!form.description.trim() || !price) return
+    const validItems = items
+      .map(it => ({
+        description: it.description.trim(),
+        quantity:    parseInt(it.quantity) || 1,
+        priceARS:    parseFloat(it.priceARS) || 0,
+      }))
+      .filter(it => it.description && it.priceARS > 0)
+
+    if (!validItems.length) return
+
     onSave({
       id:          sale?.id || uid(),
       date:        form.date,
-      description: form.description.trim(),
-      quantity:    qty,
-      priceARS:    price,
-      totalARS:    parseFloat(total.toFixed(2)),
       channel:     form.channel,
       notes:       form.notes.trim(),
       photo:       form.photo || null,
+      items:       validItems,
+      description: validItems.map(it => it.description).join(', '),
+      quantity:    validItems.reduce((s, it) => s + it.quantity, 0),
+      totalARS:    parseFloat(validItems.reduce((s, it) => s + it.quantity * it.priceARS, 0).toFixed(2)),
     })
     onClose()
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-400'
+  const inputCls = 'px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-400'
 
   return (
     <Modal title={sale ? 'Edit Venta' : 'Nueva Venta'} onClose={onClose}>
@@ -99,30 +123,40 @@ function SaleModal({ sale, onSave, onClose }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
-            <input type="date" className={inputCls} value={form.date} onChange={e => set('date', e.target.value)} />
+            <input type="date" className={`${inputCls} w-full`} value={form.date} onChange={e => set('date', e.target.value)} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Canal</label>
-            <select className={inputCls} value={form.channel} onChange={e => set('channel', e.target.value)}>
+            <select className={`${inputCls} w-full`} value={form.channel} onChange={e => set('channel', e.target.value)}>
               {CHANNELS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
-          <input type="text" className={inputCls} placeholder="ej. Lapicera beads azul" value={form.description} onChange={e => set('description', e.target.value)} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
-            <input type="number" min="1" className={inputCls} value={form.quantity} onChange={e => set('quantity', e.target.value)} />
+          <label className="block text-xs font-medium text-gray-600 mb-1">Items</label>
+          <div className="space-y-2">
+            {items.map(it => (
+              <div key={it.id} className="flex gap-2 items-start">
+                <input type="text" className={`${inputCls} flex-1`} placeholder="ej. Lapicera beads azul"
+                  value={it.description} onChange={e => setItem(it.id, 'description', e.target.value)} />
+                <input type="number" min="1" className={`${inputCls} w-16`} placeholder="Qty"
+                  value={it.quantity} onChange={e => setItem(it.id, 'quantity', e.target.value)} />
+                <input type="number" min="0" className={`${inputCls} w-24`} placeholder="Precio"
+                  value={it.priceARS} onChange={e => setItem(it.id, 'priceARS', e.target.value)} />
+                {items.length > 1 && (
+                  <button type="button" onClick={() => removeItem(it.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Precio por unidad (ARS)</label>
-            <input type="number" min="0" className={inputCls} placeholder="0.00" value={form.priceARS} onChange={e => set('priceARS', e.target.value)} />
-          </div>
+          <button type="button" onClick={addItem}
+            className="mt-2 flex items-center gap-1 text-xs font-semibold text-pink-600 hover:text-pink-700">
+            <Plus size={14} /> Agregar item
+          </button>
         </div>
 
         {total > 0 && (
@@ -134,7 +168,7 @@ function SaleModal({ sale, onSave, onClose }) {
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Notas (opcional)</label>
-          <input type="text" className={inputCls} placeholder="Color, cliente, etc." value={form.notes} onChange={e => set('notes', e.target.value)} />
+          <input type="text" className={`${inputCls} w-full`} placeholder="Color, cliente, etc." value={form.notes} onChange={e => set('notes', e.target.value)} />
         </div>
 
         <div>
@@ -254,28 +288,40 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
             <tbody>
               {filtered.map(s => {
                 const ch = getCh(s.channel)
+                const items = getItems(s)
                 return (
                   <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{s.date}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap align-top">{s.date}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
                         {s.photo && (
                           <img src={s.photo} alt="Pedido" onClick={() => setLightbox(s.photo)}
                             className="h-9 w-9 rounded-md object-cover border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" />
                         )}
                         <div>
-                          <p className="text-sm font-medium text-gray-800">{s.description}</p>
+                          {items.length > 1 ? (
+                            <ul className="space-y-0.5">
+                              {items.map((it, i) => (
+                                <li key={i} className="text-sm text-gray-800">
+                                  <span className="font-medium">{it.description}</span>
+                                  <span className="text-gray-400"> × {it.quantity} · {fmtARS(it.priceARS)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm font-medium text-gray-800">{items[0]?.description}</p>
+                          )}
                           {s.notes && <p className="text-xs text-gray-400 mt-0.5">{s.notes}</p>}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: ch.color + '22', color: ch.color }}>{ch.name}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{s.quantity}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtARS(s.priceARS)}</td>
-                    <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap">{fmtARS(s.totalARS)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-sm text-gray-700 align-top">{s.quantity}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap align-top">{items.length === 1 ? fmtARS(items[0].priceARS) : '—'}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap align-top">{fmtARS(s.totalARS)}</td>
+                    <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-1">
                         <button onClick={() => setModal(s)} className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={14} /></button>
                         <button onClick={() => handleDelete(s.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
