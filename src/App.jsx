@@ -132,7 +132,7 @@ export default function App() {
     ),
     'rw-ventas': (
       <RWVentas
-        sales={rwSales}
+        sales={rwSales} conversions={conversions}
         onAdd={addRwSale} onUpdate={updateRwSale} onDelete={deleteRwSale}
       />
     ),

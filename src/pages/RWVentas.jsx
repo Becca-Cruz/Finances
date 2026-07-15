@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search, Camera, X } from 'lucide-react'
 import Modal from '../components/Modal'
-import { fmtARS } from '../lib/currency'
+import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD } from '../lib/currency'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -45,35 +45,65 @@ export const CHANNELS = [
 const getCh = (id) => CHANNELS.find(c => c.id === id) || CHANNELS.find(c => c.id === 'otros')
 
 // Sales saved before multi-item support only have flat description/quantity/priceARS fields.
-const getItems = (sale) => (sale.items && sale.items.length)
-  ? sale.items
-  : [{ description: sale.description, quantity: sale.quantity, priceARS: sale.priceARS }]
+// Sales saved before USD support have per-item `priceARS` instead of the currency-agnostic `price`.
+const getItems = (sale) => {
+  if (sale.items && sale.items.length) {
+    return sale.items.map(it => ({
+      description: it.description,
+      quantity:    it.quantity,
+      price:       it.price ?? it.priceARS ?? 0,
+    }))
+  }
+  return [{ description: sale.description, quantity: sale.quantity, price: sale.priceARS }]
+}
 
-function SaleModal({ sale, onSave, onClose }) {
+// Sales saved before USD support have no totalUSD; estimate it from that sale's date rate.
+const getSaleUSD = (sale, conversions) => {
+  if (sale.totalUSD != null) return sale.totalUSD
+  const rate = getRateForDate(conversions, sale.date)
+  return rate ? arsToUsd(sale.totalARS, rate) : null
+}
+
+function SaleModal({ sale, conversions, onSave, onClose }) {
   const [form, setForm] = useState({
-    date:    sale?.date    || today(),
-    channel: sale?.channel || 'instagram',
-    notes:   sale?.notes   || '',
-    photo:   sale?.photo   || null,
+    date:     sale?.date     || today(),
+    channel:  sale?.channel  || 'instagram',
+    currency: sale?.currency || 'ARS',
+    rate:     sale?.rateARS_USD ? sale.rateARS_USD.toString() : '',
+    notes:    sale?.notes    || '',
+    photo:    sale?.photo    || null,
   })
   const [items, setItems] = useState(() => {
-    if (!sale) return [{ id: uid(), description: '', quantity: '1', priceARS: '' }]
+    if (!sale) return [{ id: uid(), description: '', quantity: '1', price: '' }]
     return getItems(sale).map(it => ({
       id:          uid(),
       description: it.description || '',
       quantity:    it.quantity?.toString() || '1',
-      priceARS:    it.priceARS?.toString() || '',
+      price:       it.price?.toString() || '',
     }))
   })
   const [uploading, setUploading] = useState(false)
 
   const set     = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setItem = (id, k, v) => setItems(list => list.map(it => it.id === id ? { ...it, [k]: v } : it))
-  const addItem = () => setItems(list => [...list, { id: uid(), description: '', quantity: '1', priceARS: '' }])
+  const addItem = () => setItems(list => [...list, { id: uid(), description: '', quantity: '1', price: '' }])
   const removeItem = (id) => setItems(list => list.length > 1 ? list.filter(it => it.id !== id) : list)
 
-  const itemTotals = items.map(it => (parseInt(it.quantity) || 0) * (parseFloat(it.priceARS) || 0))
+  const autoRate = getRateForDate(conversions, form.date)
+
+  // Pre-fill exchange rate from Contadora whenever the date changes and it hasn't been touched yet.
+  useMemo(() => {
+    if (autoRate && !form.rate) setForm(f => ({ ...f, rate: autoRate.toFixed(2) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.date, autoRate])
+
+  const rate  = parseFloat(form.rate) || autoRate || 0
+  const itemTotals = items.map(it => (parseInt(it.quantity) || 0) * (parseFloat(it.price) || 0))
   const total = itemTotals.reduce((s, t) => s + t, 0)
+
+  const equiv = total > 0 && rate
+    ? (form.currency === 'ARS' ? `≈ ${fmtUSD(arsToUsd(total, rate))}` : `≈ ${fmtARS(usdToArs(total, rate))}`)
+    : ''
 
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0]
@@ -95,22 +125,30 @@ function SaleModal({ sale, onSave, onClose }) {
       .map(it => ({
         description: it.description.trim(),
         quantity:    parseInt(it.quantity) || 1,
-        priceARS:    parseFloat(it.priceARS) || 0,
+        price:       parseFloat(it.price) || 0,
       }))
-      .filter(it => it.description && it.priceARS > 0)
+      .filter(it => it.description && it.price > 0)
 
     if (!validItems.length) return
+    if (form.currency === 'USD' && !rate) return
+
+    const totalInCurrency = validItems.reduce((s, it) => s + it.quantity * it.price, 0)
+    const totalARS = form.currency === 'ARS' ? totalInCurrency : usdToArs(totalInCurrency, rate)
+    const totalUSD = form.currency === 'USD' ? totalInCurrency : (rate ? arsToUsd(totalInCurrency, rate) : null)
 
     onSave({
       id:          sale?.id || uid(),
       date:        form.date,
       channel:     form.channel,
+      currency:    form.currency,
+      rateARS_USD: rate || 0,
       notes:       form.notes.trim(),
       photo:       form.photo || null,
       items:       validItems,
       description: validItems.map(it => it.description).join(', '),
       quantity:    validItems.reduce((s, it) => s + it.quantity, 0),
-      totalARS:    parseFloat(validItems.reduce((s, it) => s + it.quantity * it.priceARS, 0).toFixed(2)),
+      totalARS:    parseFloat(totalARS.toFixed(2)),
+      totalUSD:    totalUSD != null ? parseFloat(totalUSD.toFixed(2)) : null,
     })
     onClose()
   }
@@ -118,7 +156,16 @@ function SaleModal({ sale, onSave, onClose }) {
   const inputCls = 'px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-400'
 
   return (
-    <Modal title={sale ? 'Edit Venta' : 'Nueva Venta'} onClose={onClose}>
+    <Modal
+      title={sale ? 'Edit Venta' : 'Nueva Venta'}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <button onClick={handleSave} className="flex-1 py-2 bg-pink-600 text-white rounded-lg text-sm font-medium hover:bg-pink-700">Save</button>
+          <button onClick={onClose}   className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>
+        </div>
+      }
+    >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -134,7 +181,17 @@ function SaleModal({ sale, onSave, onClose }) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Items</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-medium text-gray-600">Items</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs flex-shrink-0">
+              {['ARS', 'USD'].map(cur => (
+                <button key={cur} type="button" onClick={() => set('currency', cur)}
+                  className={`px-2.5 py-1 font-semibold transition-colors ${form.currency === cur ? 'bg-pink-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                  {cur}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-2">
             {items.map(it => (
               <div key={it.id} className="flex gap-2 items-start">
@@ -142,8 +199,8 @@ function SaleModal({ sale, onSave, onClose }) {
                   value={it.description} onChange={e => setItem(it.id, 'description', e.target.value)} />
                 <input type="number" min="1" className={`${inputCls} w-16`} placeholder="Qty"
                   value={it.quantity} onChange={e => setItem(it.id, 'quantity', e.target.value)} />
-                <input type="number" min="0" className={`${inputCls} w-24`} placeholder="Precio"
-                  value={it.priceARS} onChange={e => setItem(it.id, 'priceARS', e.target.value)} />
+                <input type="number" min="0" className={`${inputCls} w-24`} placeholder={form.currency}
+                  value={it.price} onChange={e => setItem(it.id, 'price', e.target.value)} />
                 {items.length > 1 && (
                   <button type="button" onClick={() => removeItem(it.id)}
                     className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
@@ -159,10 +216,24 @@ function SaleModal({ sale, onSave, onClose }) {
           </button>
         </div>
 
+        {form.currency === 'USD' && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Tipo de cambio (ARS por USD)
+              {autoRate && <span className="text-gray-400 ml-1">— auto de Contadora</span>}
+            </label>
+            <input type="number" className={`${inputCls} w-full`} placeholder={autoRate ? autoRate.toFixed(2) : 'Ingresar tipo de cambio'}
+              value={form.rate} onChange={e => set('rate', e.target.value)} />
+          </div>
+        )}
+
         {total > 0 && (
           <div className="bg-pink-50 rounded-lg px-4 py-2.5 flex justify-between items-center">
             <span className="text-sm text-pink-700">Total</span>
-            <span className="text-lg font-bold text-pink-700">{fmtARS(total)}</span>
+            <div className="text-right">
+              <div className="text-lg font-bold text-pink-700">{form.currency === 'USD' ? fmtUSD(total) : fmtARS(total)}</div>
+              {equiv && <div className="text-xs text-pink-400">{equiv}</div>}
+            </div>
           </div>
         )}
 
@@ -189,17 +260,12 @@ function SaleModal({ sale, onSave, onClose }) {
             </label>
           )}
         </div>
-
-        <div className="flex gap-2 pt-2">
-          <button onClick={handleSave} className="flex-1 py-2 bg-pink-600 text-white rounded-lg text-sm font-medium hover:bg-pink-700">Save</button>
-          <button onClick={onClose}   className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>
-        </div>
       </div>
     </Modal>
   )
 }
 
-export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
+export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete }) {
   const [modal, setModal] = useState(null)
   const [search, setSearch] = useState('')
   const [filterChannel, setFilterChannel] = useState('all')
@@ -217,6 +283,10 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
 
   const totalARS   = filtered.reduce((s, v) => s + v.totalARS, 0)
   const totalUnits = filtered.reduce((s, v) => s + v.quantity, 0)
+  const totalUSD   = filtered.reduce((sum, s) => {
+    const usd = getSaleUSD(s, conversions)
+    return usd != null ? sum + usd : sum
+  }, 0)
 
   const handleDelete = (id) => { if (window.confirm('Delete this sale?')) onDelete(id) }
 
@@ -259,12 +329,18 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
 
       {/* Summary bar */}
       {filtered.length > 0 && (
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-gray-500">{filtered.length} venta{filtered.length !== 1 ? 's' : ''}</span>
           <span className="text-gray-300">|</span>
           <span className="text-gray-500">{totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}</span>
           <span className="text-gray-300">|</span>
           <span className="font-semibold text-pink-700">{fmtARS(totalARS)}</span>
+          {totalUSD > 0 && (
+            <>
+              <span className="text-gray-300">|</span>
+              <span className="text-gray-400">≈ {fmtUSD(totalUSD)}</span>
+            </>
+          )}
         </div>
       )}
 
@@ -289,6 +365,8 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
               {filtered.map(s => {
                 const ch = getCh(s.channel)
                 const items = getItems(s)
+                const cur = s.currency || 'ARS'
+                const fmtCur = cur === 'USD' ? fmtUSD : fmtARS
                 return (
                   <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap align-top">{s.date}</td>
@@ -304,7 +382,7 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
                               {items.map((it, i) => (
                                 <li key={i} className="text-sm text-gray-800">
                                   <span className="font-medium">{it.description}</span>
-                                  <span className="text-gray-400"> × {it.quantity} · {fmtARS(it.priceARS)}</span>
+                                  <span className="text-gray-400"> × {it.quantity} · {fmtCur(it.price)}</span>
                                 </li>
                               ))}
                             </ul>
@@ -319,8 +397,11 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
                       <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: ch.color + '22', color: ch.color }}>{ch.name}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 align-top">{s.quantity}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap align-top">{items.length === 1 ? fmtARS(items[0].priceARS) : '—'}</td>
-                    <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap align-top">{fmtARS(s.totalARS)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap align-top">{items.length === 1 ? fmtCur(items[0].price) : '—'}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap align-top">
+                      {fmtARS(s.totalARS)}
+                      {cur === 'USD' && <div className="text-xs font-normal text-gray-400">{fmtUSD(s.totalUSD ?? 0)}</div>}
+                    </td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-1">
                         <button onClick={() => setModal(s)} className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={14} /></button>
@@ -338,6 +419,7 @@ export default function RWVentas({ sales, onAdd, onUpdate, onDelete }) {
       {modal && (
         <SaleModal
           sale={modal === 'add' ? null : modal}
+          conversions={conversions}
           onSave={modal === 'add' ? onAdd : onUpdate}
           onClose={() => setModal(null)}
         />

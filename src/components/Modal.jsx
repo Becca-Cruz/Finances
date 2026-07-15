@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 
-export default function Modal({ title, onClose, children, size = 'md' }) {
+export default function Modal({ title, onClose, children, footer, size = 'md' }) {
   useEffect(() => {
     const fn = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', fn)
@@ -15,8 +15,8 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className={`bg-white rounded-xl shadow-2xl w-full ${widths[size]}`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className={`bg-white rounded-xl shadow-2xl w-full ${widths[size]} max-h-[90vh] flex flex-col`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
@@ -25,7 +25,8 @@ export default function Modal({ title, onClose, children, size = 'md' }) {
             <X size={16} />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto">{children}</div>
+        {footer && <div className="px-5 py-4 border-t border-gray-100 flex-shrink-0">{footer}</div>}
       </div>
     </div>
   )
