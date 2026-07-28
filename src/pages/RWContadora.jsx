@@ -3,21 +3,24 @@ import { Search } from 'lucide-react'
 import { fmtARS, fmtUSD } from '../lib/currency'
 import { getSaleUSD } from '../lib/sales'
 
-const DEFAULT_COL_WIDTHS = { fecha: 140, descripcion: 420, total: 160 }
+const DEFAULT_COL_WIDTHS = { fecha: 140, total: 160 }
 const MIN_COL_WIDTH = 60
 
 export default function RWContadora({ sales, conversions }) {
   const [search, setSearch] = useState('')
   const [colWidths, setColWidths] = useState(DEFAULT_COL_WIDTHS)
 
-  const startResize = (col) => (e) => {
+  // sign=1: dragging right grows this column. sign=-1: dragging right shrinks it
+  // (used on the handle between Descripción and Total, which visually belongs to
+  // Descripción but actually resizes Total from the other side).
+  const startResize = (col, sign = 1) => (e) => {
     e.preventDefault()
     const startX = e.clientX
     const startWidth = colWidths[col]
     document.body.style.userSelect = 'none'
 
     const onMouseMove = (moveEvent) => {
-      const delta = moveEvent.clientX - startX
+      const delta = (moveEvent.clientX - startX) * sign
       setColWidths(w => ({ ...w, [col]: Math.max(MIN_COL_WIDTH, startWidth + delta) }))
     }
     const onMouseUp = () => {
@@ -84,18 +87,20 @@ export default function RWContadora({ sales, conversions }) {
           <table className="w-full" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: colWidths.fecha }} />
-              <col style={{ width: colWidths.descripcion }} />
+              <col />
               <col style={{ width: colWidths.total }} />
             </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {[['fecha', 'Fecha'], ['descripcion', 'Descripción'], ['total', 'Total']].map(([col, label]) => (
-                  <th key={col} className="relative text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">
+                {[['fecha', 'Fecha', 1], ['descripcion', 'Descripción', -1], ['total', 'Total', null]].map(([col, label, sign]) => (
+                  <th key={col} className="relative text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3 overflow-hidden">
                     {label}
-                    <span
-                      onMouseDown={startResize(col)}
-                      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-pink-300 active:bg-pink-400 transition-colors"
-                    />
+                    {sign != null && (
+                      <span
+                        onMouseDown={startResize(sign === -1 ? 'total' : col, sign)}
+                        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-pink-300 active:bg-pink-400 transition-colors"
+                      />
+                    )}
                   </th>
                 ))}
               </tr>
