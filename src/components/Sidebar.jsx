@@ -1,4 +1,4 @@
-import { LayoutDashboard, CreditCard, ArrowLeftRight, TrendingUp, Settings, Wallet, BarChart2, ShoppingBag, LayoutGrid, Tag } from 'lucide-react'
+import { LayoutDashboard, CreditCard, ArrowLeftRight, TrendingUp, Settings, Wallet, BarChart2, ShoppingBag, LayoutGrid, Tag, Calculator } from 'lucide-react'
 
 const PERSONAL = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -13,6 +13,7 @@ const BUSINESS = [
   { id: 'rw-dashboard', label: 'Resumen',  Icon: LayoutGrid },
   { id: 'rw-gastos',    label: 'Gastos',   Icon: ShoppingBag },
   { id: 'rw-ventas',    label: 'Ventas',   Icon: Tag },
+  { id: 'rw-contadora', label: 'Contadora', Icon: Calculator },
 ]
 
 export default function Sidebar({ page, onNavigate }) {

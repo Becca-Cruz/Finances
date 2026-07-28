@@ -9,6 +9,7 @@ import Stats from './pages/Stats'
 import RWDashboard from './pages/RWDashboard'
 import RWGastos from './pages/RWGastos'
 import RWVentas from './pages/RWVentas'
+import RWContadora from './pages/RWContadora'
 import Settings from './pages/Settings'
 import { useLocalStorage } from './lib/storage'
 import { DEFAULT_CATEGORIES } from './lib/defaults'
@@ -135,6 +136,9 @@ export default function App() {
         sales={rwSales} conversions={conversions}
         onAdd={addRwSale} onUpdate={updateRwSale} onDelete={deleteRwSale}
       />
+    ),
+    'rw-contadora': (
+      <RWContadora sales={rwSales} conversions={conversions} />
     ),
     settings: (
       <Settings

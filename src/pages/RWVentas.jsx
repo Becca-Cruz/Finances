@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search, Camera, X } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD } from '../lib/currency'
+import { getItems, getSaleUSD } from '../lib/sales'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -43,26 +44,6 @@ export const CHANNELS = [
 ]
 
 const getCh = (id) => CHANNELS.find(c => c.id === id) || CHANNELS.find(c => c.id === 'otros')
-
-// Sales saved before multi-item support only have flat description/quantity/priceARS fields.
-// Sales saved before USD support have per-item `priceARS` instead of the currency-agnostic `price`.
-const getItems = (sale) => {
-  if (sale.items && sale.items.length) {
-    return sale.items.map(it => ({
-      description: it.description,
-      quantity:    it.quantity,
-      price:       it.price ?? it.priceARS ?? 0,
-    }))
-  }
-  return [{ description: sale.description, quantity: sale.quantity, price: sale.priceARS }]
-}
-
-// Sales saved before USD support have no totalUSD; estimate it from that sale's date rate.
-const getSaleUSD = (sale, conversions) => {
-  if (sale.totalUSD != null) return sale.totalUSD
-  const rate = getRateForDate(conversions, sale.date)
-  return rate ? arsToUsd(sale.totalARS, rate) : null
-}
 
 function SaleModal({ sale, conversions, onSave, onClose }) {
   const [form, setForm] = useState({
