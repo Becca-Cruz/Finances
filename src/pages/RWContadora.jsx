@@ -3,8 +3,31 @@ import { Search } from 'lucide-react'
 import { fmtARS, fmtUSD } from '../lib/currency'
 import { getSaleUSD } from '../lib/sales'
 
+const DEFAULT_COL_WIDTHS = { fecha: 140, descripcion: 420, total: 160 }
+const MIN_COL_WIDTH = 60
+
 export default function RWContadora({ sales, conversions }) {
   const [search, setSearch] = useState('')
+  const [colWidths, setColWidths] = useState(DEFAULT_COL_WIDTHS)
+
+  const startResize = (col) => (e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = colWidths[col]
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX
+      setColWidths(w => ({ ...w, [col]: Math.max(MIN_COL_WIDTH, startWidth + delta) }))
+    }
+    const onMouseUp = () => {
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }
 
   const filtered = useMemo(() => {
     return sales
@@ -58,11 +81,22 @@ export default function RWContadora({ sales, conversions }) {
             </p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: colWidths.fecha }} />
+              <col style={{ width: colWidths.descripcion }} />
+              <col style={{ width: colWidths.total }} />
+            </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Fecha', 'Descripción', 'Total'].map(h => (
-                  <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
+                {[['fecha', 'Fecha'], ['descripcion', 'Descripción'], ['total', 'Total']].map(([col, label]) => (
+                  <th key={col} className="relative text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">
+                    {label}
+                    <span
+                      onMouseDown={startResize(col)}
+                      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-pink-300 active:bg-pink-400 transition-colors"
+                    />
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -71,12 +105,12 @@ export default function RWContadora({ sales, conversions }) {
                 const cur = s.currency || 'ARS'
                 return (
                   <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap align-top">{s.date}</td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis align-top">{s.date}</td>
+                    <td className="px-4 py-3 align-top overflow-hidden">
                       <p className="text-sm font-medium text-gray-800">{s.description}</p>
                       {s.notes && <p className="text-xs text-gray-400 mt-0.5">{s.notes}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap align-top">
+                    <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap overflow-hidden text-ellipsis align-top">
                       {fmtARS(s.totalARS)}
                       {cur === 'USD' && <div className="text-xs font-normal text-gray-400">{fmtUSD(s.totalUSD ?? 0)}</div>}
                     </td>
