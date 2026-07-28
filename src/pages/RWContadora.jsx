@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Search } from 'lucide-react'
 import { fmtARS, fmtUSD } from '../lib/currency'
-import { getItems, getSaleUSD } from '../lib/sales'
+import { getSaleUSD } from '../lib/sales'
 
 export default function RWContadora({ sales, conversions }) {
   const [search, setSearch] = useState('')
@@ -61,16 +61,14 @@ export default function RWContadora({ sales, conversions }) {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {['Fecha', 'Descripción', 'Precio', 'Total'].map(h => (
+                {['Fecha', 'Descripción', 'Total'].map(h => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(s => {
-                const items = getItems(s)
                 const cur = s.currency || 'ARS'
-                const fmtCur = cur === 'USD' ? fmtUSD : fmtARS
                 return (
                   <tr key={s.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap align-top">{s.date}</td>
@@ -78,7 +76,6 @@ export default function RWContadora({ sales, conversions }) {
                       <p className="text-sm font-medium text-gray-800">{s.description}</p>
                       {s.notes && <p className="text-xs text-gray-400 mt-0.5">{s.notes}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap align-top">{items.length === 1 ? fmtCur(items[0].price) : '—'}</td>
                     <td className="px-4 py-3 text-sm font-bold text-pink-700 whitespace-nowrap align-top">
                       {fmtARS(s.totalARS)}
                       {cur === 'USD' && <div className="text-xs font-normal text-gray-400">{fmtUSD(s.totalUSD ?? 0)}</div>}
