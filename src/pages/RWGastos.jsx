@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react'
-import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react'
+import { useState, useMemo, useRef, Fragment } from 'react'
+import { Plus, Pencil, Trash2, Search, Filter, ChevronRight } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD, fmtRate } from '../lib/currency'
 
@@ -26,7 +26,13 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
     amount:   expense?.inputAmount?.toString() || '',
     rate:     '',
   })
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const [items, setItems] = useState(() =>
+    (expense?.items || []).map(it => ({ id: uid(), description: it.description || '', price: it.price?.toString() || '' }))
+  )
+  const set     = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const setItem = (id, k, v) => setItems(list => list.map(it => it.id === id ? { ...it, [k]: v } : it))
+  const addItem = () => setItems(list => [...list, { id: uid(), description: '', price: '' }])
+  const removeItem = (id) => setItems(list => list.filter(it => it.id !== id))
 
   const autoRate = getRateForDate(conversions, form.date)
   const rate = parseFloat(form.rate) || autoRate || 0
@@ -50,6 +56,9 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
     if (form.currency === 'ARS' && !rate) return
     const amountARS = form.currency === 'ARS' ? amount : (rate ? usdToArs(amount, rate) : 0)
     const amountUSD = form.currency === 'USD' ? amount : arsToUsd(amount, rate)
+    const validItems = items
+      .map(it => ({ description: it.description.trim(), price: parseFloat(it.price) || 0 }))
+      .filter(it => it.description)
     onSave({
       id: expense?.id || uid(),
       date: form.date,
@@ -60,14 +69,25 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
       rateARS_USD: rate || 0,
       amountARS: parseFloat(amountARS.toFixed(2)),
       amountUSD: parseFloat(amountUSD.toFixed(2)),
+      items: validItems,
     })
     onClose()
   }
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const itemInputCls = 'px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
   return (
-    <Modal title={expense ? 'Edit Expense' : 'Add Expense'} onClose={onClose}>
+    <Modal
+      title={expense ? 'Edit Expense' : 'Add Expense'}
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <button onClick={handleSave} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
+          <button onClick={onClose} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>
+        </div>
+      }
+    >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -85,6 +105,28 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
           <input type="text" className={inputCls} placeholder="¿Qué compraste?" value={form.description} onChange={e => set('description', e.target.value)} />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Detalle (opcional)</label>
+          <div className="space-y-2">
+            {items.map(it => (
+              <div key={it.id} className="flex gap-2 items-start">
+                <input type="text" className={`${itemInputCls} flex-1`} placeholder="Item"
+                  value={it.description} onChange={e => setItem(it.id, 'description', e.target.value)} />
+                <input type="number" min="0" className={`${itemInputCls} w-24`} placeholder="Precio"
+                  value={it.price} onChange={e => setItem(it.id, 'price', e.target.value)} />
+                <button type="button" onClick={() => removeItem(it.id)}
+                  className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={addItem}
+            className="mt-2 flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
+            <Plus size={14} /> Agregar item
+          </button>
         </div>
 
         <div>
@@ -112,11 +154,6 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
           </label>
           <input type="number" className={inputCls} placeholder={autoRate ? autoRate.toFixed(2) : 'Enter rate'} value={form.rate} onChange={e => set('rate', e.target.value)} />
         </div>
-
-        <div className="flex gap-2 pt-2">
-          <button onClick={handleSave} className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save</button>
-          <button onClick={onClose} className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">Cancel</button>
-        </div>
       </div>
     </Modal>
   )
@@ -129,6 +166,12 @@ export default function RWGastos({ expenses, conversions, onAdd, onUpdate, onDel
   const [filterCur, setFilterCur] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [expandedIds, setExpandedIds] = useState(() => new Set())
+  const toggleExpand = (id) => setExpandedIds(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
   const [sortField, setSortField] = useState(null)
   const [sortDir, setSortDir] = useState('desc')
 
@@ -269,24 +312,54 @@ export default function RWGastos({ expenses, conversions, onAdd, onUpdate, onDel
             <tbody>
               {filtered.map(e => {
                 const cat = getCat(e.category)
+                const hasDetail = e.items && e.items.length > 0
+                const expanded = expandedIds.has(e.id)
+                const fmtItemPrice = e.inputCurrency === 'USD' ? fmtUSD : fmtARS
                 return (
-                  <tr key={e.id} className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{e.date}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{e.description}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
-                        style={{ background: cat.color + '22', color: cat.color }}>{cat.name}</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{fmtARS(e.amountARS)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{fmtUSD(e.amountUSD)}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{e.rateARS_USD ? fmtRate(e.rateARS_USD) : '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setModal(e)} className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={14} /></button>
-                        <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
+                  <Fragment key={e.id}>
+                    <tr className="border-t border-gray-50 hover:bg-gray-50/60 transition-colors">
+                      <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{e.date}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">
+                        <div className="flex items-center gap-1.5">
+                          {hasDetail && (
+                            <button onClick={() => toggleExpand(e.id)}
+                              className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                              <ChevronRight size={14} className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                            </button>
+                          )}
+                          <span>{e.description}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                          style={{ background: cat.color + '22', color: cat.color }}>{cat.name}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{fmtARS(e.amountARS)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{fmtUSD(e.amountUSD)}</td>
+                      <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{e.rateARS_USD ? fmtRate(e.rateARS_USD) : '—'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setModal(e)} className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={14} /></button>
+                          <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                    {hasDetail && expanded && (
+                      <tr className="bg-gray-50/60 border-t border-gray-50">
+                        <td />
+                        <td colSpan={6} className="px-4 pb-3 pt-0">
+                          <ul className="space-y-1 max-w-sm">
+                            {e.items.map((it, i) => (
+                              <li key={i} className="text-xs text-gray-600 flex justify-between gap-3">
+                                <span>• {it.description}</span>
+                                {it.price > 0 && <span className="text-gray-400 whitespace-nowrap">{fmtItemPrice(it.price)}</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 )
               })}
             </tbody>
