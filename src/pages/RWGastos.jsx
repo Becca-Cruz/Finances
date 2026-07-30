@@ -36,12 +36,19 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
 
   const autoRate = getRateForDate(conversions, form.date)
   const rate = parseFloat(form.rate) || autoRate || 0
-  const amount = parseFloat(form.amount) || 0
+  const itemsTotal = items.reduce((s, it) => s + (parseFloat(it.price) || 0), 0)
+  const hasItems = items.some(it => it.description.trim())
+  const amount = hasItems ? itemsTotal : (parseFloat(form.amount) || 0)
 
   // Pre-fill rate from conversions when date changes
   useMemo(() => {
     if (autoRate) setForm(f => ({ ...f, rate: autoRate.toFixed(2) }))
   }, [form.date, autoRate])
+
+  // Amount follows the item detail total whenever there's at least one item
+  useMemo(() => {
+    if (hasItems) setForm(f => ({ ...f, amount: itemsTotal.toString() }))
+  }, [hasItems, itemsTotal])
 
   useMemo(() => {
     if (expense?.rateARS_USD) setForm(f => ({ ...f, rate: expense.rateARS_USD.toFixed(2) }))
@@ -130,9 +137,14 @@ function ExpenseModal({ expense, conversions, onSave, onClose }) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Amount</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Amount
+            {hasItems && <span className="text-gray-400 ml-1">— suma del detalle</span>}
+          </label>
           <div className="flex gap-2">
-            <input type="number" className={`${inputCls} flex-1`} placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} min="0" />
+            <input type="number" className={`${inputCls} flex-1 ${hasItems ? 'bg-gray-50 text-gray-500' : ''}`} placeholder="0.00"
+              value={hasItems ? itemsTotal.toFixed(2) : form.amount} onChange={e => set('amount', e.target.value)}
+              disabled={hasItems} min="0" />
             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
               {['USD', 'ARS'].map(cur => (
                 <button key={cur} onClick={() => set('currency', cur)}
