@@ -277,21 +277,83 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
     const fmtCur = cur === 'USD' ? fmtUSD : fmtARS
     const total = cur === 'USD' ? (sale.totalUSD ?? getSaleUSD(sale, conversions) ?? 0) : sale.totalARS
 
-    const lineas = [
-      `Pedido — ${sale.date}`,
-      '',
-      ...items.map(it => `${it.description}  x${it.quantity}  ${fmtCur(it.price)} c/u  =  ${fmtCur(it.quantity * it.price)}`),
-      '',
-      `Total: ${fmtCur(total)}`,
-    ]
+    const width = 640
+    const padding = 36
+    const lineHeight = 30
+    const headerHeight = sale.notes ? 130 : 108
+    const totalBlockHeight = 70
+    const footerHeight = 56
+    const height = headerHeight + items.length * lineHeight + totalBlockHeight + footerHeight
 
-    const blob = new Blob([lineas.join('\n')], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `pedido-${sale.date}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+    const scale = 2
+    const canvas = document.createElement('canvas')
+    canvas.width = width * scale
+    canvas.height = height * scale
+    const ctx = canvas.getContext('2d')
+    ctx.scale(scale, scale)
+
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+
+    ctx.fillStyle = '#db2777'
+    ctx.fillRect(0, 0, width, 6)
+
+    ctx.textAlign = 'left'
+    ctx.fillStyle = '#111827'
+    ctx.font = 'bold 26px sans-serif'
+    ctx.fillText("Rebe's Way", padding, 54)
+
+    ctx.fillStyle = '#6b7280'
+    ctx.font = '14px sans-serif'
+    ctx.fillText(`Pedido del ${sale.date}`, padding, 76)
+    if (sale.notes) ctx.fillText(sale.notes, padding, 96)
+
+    ctx.strokeStyle = '#f3f4f6'
+    ctx.beginPath()
+    ctx.moveTo(padding, headerHeight - 16)
+    ctx.lineTo(width - padding, headerHeight - 16)
+    ctx.stroke()
+
+    let y = headerHeight + 12
+    ctx.font = '15px sans-serif'
+    items.forEach((it) => {
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#111827'
+      ctx.fillText(`${it.description}  ×${it.quantity}`, padding, y)
+      ctx.textAlign = 'right'
+      ctx.fillStyle = '#6b7280'
+      ctx.fillText(fmtCur(it.quantity * it.price), width - padding, y)
+      y += lineHeight
+    })
+
+    ctx.strokeStyle = '#f3f4f6'
+    ctx.beginPath()
+    ctx.moveTo(padding, y)
+    ctx.lineTo(width - padding, y)
+    ctx.stroke()
+    y += 36
+
+    ctx.textAlign = 'left'
+    ctx.font = 'bold 18px sans-serif'
+    ctx.fillStyle = '#111827'
+    ctx.fillText('Total', padding, y)
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#db2777'
+    ctx.fillText(fmtCur(total), width - padding, y)
+
+    ctx.textAlign = 'center'
+    ctx.font = '13px sans-serif'
+    ctx.fillStyle = '#9ca3af'
+    ctx.fillText('¡Gracias por tu compra! 💌', width / 2, height - 22)
+
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `pedido-${sale.date}.png`
+      a.click()
+      URL.revokeObjectURL(url)
+    })
   }
 
   return (
