@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Search, Camera, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Camera, X, Download } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD } from '../lib/currency'
 import { getItems, getSaleUSD } from '../lib/sales'
@@ -271,6 +271,29 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
 
   const handleDelete = (id) => { if (window.confirm('Delete this sale?')) onDelete(id) }
 
+  const handleDownload = (sale) => {
+    const items = getItems(sale)
+    const cur = sale.currency || 'ARS'
+    const fmtCur = cur === 'USD' ? fmtUSD : fmtARS
+    const total = cur === 'USD' ? (sale.totalUSD ?? getSaleUSD(sale, conversions) ?? 0) : sale.totalARS
+
+    const lineas = [
+      `Pedido — ${sale.date}`,
+      '',
+      ...items.map(it => `${it.description}  x${it.quantity}  ${fmtCur(it.price)} c/u  =  ${fmtCur(it.quantity * it.price)}`),
+      '',
+      `Total: ${fmtCur(total)}`,
+    ]
+
+    const blob = new Blob([lineas.join('\n')], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pedido-${sale.date}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
@@ -385,6 +408,7 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex items-center gap-1">
+                        <button onClick={() => handleDownload(s)} className="p-1.5 rounded-md text-gray-400 hover:text-pink-600 hover:bg-pink-50 transition-colors"><Download size={14} /></button>
                         <button onClick={() => setModal(s)} className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Pencil size={14} /></button>
                         <button onClick={() => handleDelete(s.id)} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={14} /></button>
                       </div>
