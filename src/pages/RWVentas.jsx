@@ -45,7 +45,30 @@ export const CHANNELS = [
 
 const getCh = (id) => CHANNELS.find(c => c.id === id) || CHANNELS.find(c => c.id === 'otros')
 
-function SaleModal({ sale, conversions, onSave, onClose }) {
+// Distinct product names already used across every sale, for the description autocomplete.
+const getProductNames = (sales) => {
+  const seen = new Set()
+  sales.forEach(s => getItems(s).forEach(it => {
+    const name = (it.description || '').trim()
+    if (name) seen.add(name)
+  }))
+  return [...seen].sort((a, b) => a.localeCompare(b))
+}
+
+// Total units sold per product name, highest first.
+const getUnitsByProduct = (sales) => {
+  const totals = new Map()
+  sales.forEach(s => getItems(s).forEach(it => {
+    const name = (it.description || '').trim()
+    if (!name) return
+    totals.set(name, (totals.get(name) || 0) + (Number(it.quantity) || 0))
+  }))
+  return [...totals.entries()]
+    .map(([description, quantity]) => ({ description, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+}
+
+function SaleModal({ sale, conversions, productNames, onSave, onClose }) {
   const [form, setForm] = useState({
     date:     sale?.date     || today(),
     channel:  sale?.channel  || 'instagram',
@@ -148,6 +171,10 @@ function SaleModal({ sale, conversions, onSave, onClose }) {
       }
     >
       <div className="space-y-4">
+        <datalist id="rw-productos">
+          {productNames.map(name => <option key={name} value={name} />)}
+        </datalist>
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
@@ -176,7 +203,7 @@ function SaleModal({ sale, conversions, onSave, onClose }) {
           <div className="space-y-2">
             {items.map(it => (
               <div key={it.id} className="flex gap-2 items-start">
-                <input type="text" className={`${inputCls} flex-1`} placeholder="ej. Lapicera beads azul"
+                <input type="text" list="rw-productos" className={`${inputCls} flex-1`} placeholder="ej. Lapicera beads azul"
                   value={it.description} onChange={e => setItem(it.id, 'description', e.target.value)} />
                 <input type="number" min="1" className={`${inputCls} w-16`} placeholder="Qty"
                   value={it.quantity} onChange={e => setItem(it.id, 'quantity', e.target.value)} />
@@ -261,6 +288,9 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
       })
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [sales, filterChannel, search])
+
+  const productNames   = useMemo(() => getProductNames(sales), [sales])
+  const unitsByProduct = useMemo(() => getUnitsByProduct(filtered), [filtered])
 
   const totalARS   = filtered.reduce((s, v) => s + v.totalARS, 0)
   const totalUnits = filtered.reduce((s, v) => s + v.quantity, 0)
@@ -393,6 +423,20 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
           className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white" />
       </div>
 
+      {/* Units per product */}
+      {filtered.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Unidades por producto</p>
+          <div className="flex flex-wrap gap-2">
+            {unitsByProduct.map(p => (
+              <span key={p.description} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-pink-50 text-pink-700 border border-pink-100">
+                {p.description} <span className="text-pink-400">· {p.quantity}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Summary bar */}
       {filtered.length > 0 && (
         <div className="flex flex-wrap gap-4 text-sm">
@@ -487,6 +531,7 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
         <SaleModal
           sale={modal === 'add' ? null : modal}
           conversions={conversions}
+          productNames={productNames}
           onSave={modal === 'add' ? onAdd : onUpdate}
           onClose={() => setModal(null)}
         />
