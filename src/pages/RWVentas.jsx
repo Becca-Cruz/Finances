@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search, Camera, X, Download } from 'lucide-react'
 import Modal from '../components/Modal'
 import { getRateForDate, arsToUsd, usdToArs, fmtARS, fmtUSD } from '../lib/currency'
-import { getItems, getSaleUSD } from '../lib/sales'
+import { getItems, getSaleUSD, PRODUCT_TYPES, getProductType, getUnitsByType, fmtUnitsByType } from '../lib/sales'
 
 const today = () => new Date().toISOString().split('T')[0]
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2)
@@ -45,30 +45,14 @@ export const CHANNELS = [
 
 const getCh = (id) => CHANNELS.find(c => c.id === id) || CHANNELS.find(c => c.id === 'otros')
 
-// Distinct product names already used across every sale, for the description autocomplete.
-const getProductNames = (sales) => {
-  const seen = new Set()
-  sales.forEach(s => getItems(s).forEach(it => {
-    const name = (it.description || '').trim()
-    if (name) seen.add(name)
-  }))
-  return [...seen].sort((a, b) => a.localeCompare(b))
-}
+// Small muted label for non-lapicera items (lapiceras are the norm, so they get no tag).
+const TypeTag = ({ type }) => (!type || type === 'lapicera') ? null : (
+  <span className="ml-1.5 px-1.5 py-px rounded text-[10px] font-semibold uppercase tracking-wide bg-pink-50 text-pink-400 align-middle">
+    {getProductType(type).singular}
+  </span>
+)
 
-// Total units sold per product name, highest first.
-const getUnitsByProduct = (sales) => {
-  const totals = new Map()
-  sales.forEach(s => getItems(s).forEach(it => {
-    const name = (it.description || '').trim()
-    if (!name) return
-    totals.set(name, (totals.get(name) || 0) + (Number(it.quantity) || 0))
-  }))
-  return [...totals.entries()]
-    .map(([description, quantity]) => ({ description, quantity }))
-    .sort((a, b) => b.quantity - a.quantity)
-}
-
-function SaleModal({ sale, conversions, productNames, onSave, onClose }) {
+function SaleModal({ sale, conversions, onSave, onClose }) {
   const [form, setForm] = useState({
     date:     sale?.date     || today(),
     channel:  sale?.channel  || 'instagram',
@@ -78,19 +62,20 @@ function SaleModal({ sale, conversions, productNames, onSave, onClose }) {
     photo:    sale?.photo    || null,
   })
   const [items, setItems] = useState(() => {
-    if (!sale) return [{ id: uid(), description: '', quantity: '1', price: '' }]
+    if (!sale) return [{ id: uid(), description: '', quantity: '1', price: '', type: 'lapicera' }]
     return getItems(sale).map(it => ({
       id:          uid(),
       description: it.description || '',
       quantity:    it.quantity?.toString() || '1',
       price:       it.price?.toString() || '',
+      type:        it.type,
     }))
   })
   const [uploading, setUploading] = useState(false)
 
   const set     = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const setItem = (id, k, v) => setItems(list => list.map(it => it.id === id ? { ...it, [k]: v } : it))
-  const addItem = () => setItems(list => [...list, { id: uid(), description: '', quantity: '1', price: '' }])
+  const addItem = () => setItems(list => [...list, { id: uid(), description: '', quantity: '1', price: '', type: 'lapicera' }])
   const removeItem = (id) => setItems(list => list.length > 1 ? list.filter(it => it.id !== id) : list)
 
   const autoRate = getRateForDate(conversions, form.date)
@@ -130,6 +115,7 @@ function SaleModal({ sale, conversions, productNames, onSave, onClose }) {
         description: it.description.trim(),
         quantity:    parseInt(it.quantity) || 1,
         price:       parseFloat(it.price) || 0,
+        type:        it.type || 'lapicera',
       }))
       .filter(it => it.description && it.price > 0)
 
@@ -171,10 +157,6 @@ function SaleModal({ sale, conversions, productNames, onSave, onClose }) {
       }
     >
       <div className="space-y-4">
-        <datalist id="rw-productos">
-          {productNames.map(name => <option key={name} value={name} />)}
-        </datalist>
-
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
@@ -200,21 +182,28 @@ function SaleModal({ sale, conversions, productNames, onSave, onClose }) {
               ))}
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="divide-y divide-gray-100">
             {items.map(it => (
-              <div key={it.id} className="flex gap-2 items-start">
-                <input type="text" list="rw-productos" className={`${inputCls} flex-1`} placeholder="ej. Lapicera beads azul"
-                  value={it.description} onChange={e => setItem(it.id, 'description', e.target.value)} />
-                <input type="number" min="1" className={`${inputCls} w-16`} placeholder="Qty"
-                  value={it.quantity} onChange={e => setItem(it.id, 'quantity', e.target.value)} />
-                <input type="number" min="0" className={`${inputCls} w-24`} placeholder={form.currency}
-                  value={it.price} onChange={e => setItem(it.id, 'price', e.target.value)} />
-                {items.length > 1 && (
-                  <button type="button" onClick={() => removeItem(it.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                )}
+              <div key={it.id} className="space-y-2 py-2.5 first:pt-0 last:pb-0">
+                <div className="flex gap-2 items-start">
+                  <input type="text" className={`${inputCls} flex-1 min-w-0`} placeholder="ej. Lapicera beads azul"
+                    value={it.description} onChange={e => setItem(it.id, 'description', e.target.value)} />
+                  {items.length > 1 && (
+                    <button type="button" onClick={() => removeItem(it.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2 items-start">
+                  <select className={`${inputCls} flex-1 min-w-0 bg-white`} value={it.type} onChange={e => setItem(it.id, 'type', e.target.value)}>
+                    {PRODUCT_TYPES.map(t => <option key={t.id} value={t.id}>{t.singular}</option>)}
+                  </select>
+                  <input type="number" min="1" className={`${inputCls} w-16`} placeholder="Qty"
+                    value={it.quantity} onChange={e => setItem(it.id, 'quantity', e.target.value)} />
+                  <input type="number" min="0" className={`${inputCls} w-24`} placeholder={form.currency}
+                    value={it.price} onChange={e => setItem(it.id, 'price', e.target.value)} />
+                </div>
               </div>
             ))}
           </div>
@@ -289,11 +278,9 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [sales, filterChannel, search])
 
-  const productNames   = useMemo(() => getProductNames(sales), [sales])
-  const unitsByProduct = useMemo(() => getUnitsByProduct(filtered), [filtered])
+  const unitsLabel = useMemo(() => fmtUnitsByType(getUnitsByType(filtered)), [filtered])
 
   const totalARS   = filtered.reduce((s, v) => s + v.totalARS, 0)
-  const totalUnits = filtered.reduce((s, v) => s + v.quantity, 0)
   const totalUSD   = filtered.reduce((sum, s) => {
     const usd = getSaleUSD(s, conversions)
     return usd != null ? sum + usd : sum
@@ -349,7 +336,8 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
     items.forEach((it) => {
       ctx.textAlign = 'left'
       ctx.fillStyle = '#111827'
-      ctx.fillText(`${it.description}  ×${it.quantity}`, padding, y)
+      const typeLabel = it.type !== 'lapicera' ? ` (${getProductType(it.type).singular})` : ''
+      ctx.fillText(`${it.description}${typeLabel}  ×${it.quantity}`, padding, y)
       ctx.textAlign = 'right'
       ctx.fillStyle = '#6b7280'
       ctx.fillText(fmtCur(it.quantity * it.price), width - padding, y)
@@ -423,26 +411,12 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
           className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 bg-white" />
       </div>
 
-      {/* Units per product */}
-      {filtered.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Unidades por producto</p>
-          <div className="flex flex-wrap gap-2">
-            {unitsByProduct.map(p => (
-              <span key={p.description} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-pink-50 text-pink-700 border border-pink-100">
-                {p.description} <span className="text-pink-400">· {p.quantity}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Summary bar */}
       {filtered.length > 0 && (
         <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-gray-500">{filtered.length} venta{filtered.length !== 1 ? 's' : ''}</span>
           <span className="text-gray-300">|</span>
-          <span className="text-gray-500">{totalUnits} unidad{totalUnits !== 1 ? 'es' : ''}</span>
+          <span className="text-gray-500">{unitsLabel}</span>
           <span className="text-gray-300">|</span>
           <span className="font-semibold text-pink-700">{fmtARS(totalARS)}</span>
           {totalUSD > 0 && (
@@ -492,12 +466,13 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
                               {items.map((it, i) => (
                                 <li key={i} className="text-sm text-gray-800">
                                   <span className="font-medium">{it.description}</span>
+                                  <TypeTag type={it.type} />
                                   <span className="text-gray-400"> × {it.quantity} · {fmtCur(it.price)}</span>
                                 </li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-sm font-medium text-gray-800">{items[0]?.description}</p>
+                            <p className="text-sm font-medium text-gray-800">{items[0]?.description}<TypeTag type={items[0]?.type} /></p>
                           )}
                           {s.notes && <p className="text-xs text-gray-400 mt-0.5">{s.notes}</p>}
                         </div>
@@ -531,7 +506,6 @@ export default function RWVentas({ sales, conversions, onAdd, onUpdate, onDelete
         <SaleModal
           sale={modal === 'add' ? null : modal}
           conversions={conversions}
-          productNames={productNames}
           onSave={modal === 'add' ? onAdd : onUpdate}
           onClose={() => setModal(null)}
         />
